@@ -24,7 +24,7 @@ export default function MiniPlayer() {
 
   return (
     <View style={styles.outerContainer}>
-      {/* Top neon micro progress line */}
+      {/* Top thin micro progress line */}
       <View style={styles.progressTrack}>
         <View
           style={[
@@ -36,7 +36,7 @@ export default function MiniPlayer() {
 
       <TouchableOpacity
         style={styles.container}
-        activeOpacity={0.9}
+        activeOpacity={0.92}
         onPress={() => setIsNowPlayingOpen(true)}
       >
         <Image source={{ uri: currentTrack.thumbnail }} style={styles.thumbnail} />
@@ -58,7 +58,7 @@ export default function MiniPlayer() {
           >
             <Ionicons
               name={liked ? 'heart' : 'heart-outline'}
-              size={22}
+              size={20}
               color={liked ? colors.accentPink : colors.textSecondary}
             />
           </TouchableOpacity>
@@ -70,8 +70,8 @@ export default function MiniPlayer() {
           >
             <Ionicons
               name={isPlaying ? 'pause' : 'play'}
-              size={20}
-              color="#080B08"
+              size={18}
+              color="#121212"
               style={!isPlaying ? { marginLeft: 2 } : null}
             />
           </TouchableOpacity>
@@ -81,7 +81,7 @@ export default function MiniPlayer() {
             onPress={nextTrack}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="play-skip-forward" size={20} color={colors.textPrimary} />
+            <Ionicons name="play-skip-forward" size={19} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -91,51 +91,49 @@ export default function MiniPlayer() {
 
 const styles = StyleSheet.create({
   outerContainer: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    backgroundColor: '#242424',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderBottomWidth: 0,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
     marginHorizontal: 8,
     marginBottom: Platform.OS === 'web' ? 8 : 4,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   progressTrack: {
-    height: 2.5,
+    height: 2,
     width: '100%',
-    backgroundColor: colors.divider,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   progressFill: {
-    height: 2.5,
+    height: 2,
     backgroundColor: colors.accent,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 8,
-    height: 56,
+    height: 54,
   },
   thumbnail: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
+    width: 38,
+    height: 38,
+    borderRadius: 4,
     backgroundColor: colors.surfaceLight,
   },
   trackDetails: {
     flex: 1,
-    marginHorizontal: 12,
+    marginHorizontal: 10,
     justifyContent: 'center',
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     marginBottom: 2,
   },
@@ -146,22 +144,18 @@ const styles = StyleSheet.create({
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   iconBtn: {
     padding: 6,
-    marginLeft: 4,
   },
   playIconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.accent,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 6,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
+    marginHorizontal: 2,
   },
 });

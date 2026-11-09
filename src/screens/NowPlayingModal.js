@@ -16,6 +16,9 @@ import { usePlayer } from '../context/PlayerContext';
 import CustomSeekBar from '../components/CustomSeekBar';
 import PlaylistModal from '../components/PlaylistModal';
 import LyricsView from '../components/LyricsView';
+import SleepTimerModal from '../components/SleepTimerModal';
+
+const SPEED_STEPS = [1.0, 0.8, 1.25, 1.5];
 
 export default function NowPlayingModal() {
   const {
@@ -25,6 +28,10 @@ export default function NowPlayingModal() {
     duration,
     isShuffle,
     repeatMode,
+    playbackRate,
+    setPlaybackRate,
+    sleepTimerMinutes,
+    sleepTimerSecondsLeft,
     isNowPlayingOpen,
     setIsNowPlayingOpen,
     togglePlayPause,
@@ -40,14 +47,27 @@ export default function NowPlayingModal() {
   } = usePlayer();
 
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
-  const [activeViewMode, setActiveViewMode] = useState('art'); // 'art' | 'lyrics' | 'video'
+  const [sleepModalVisible, setSleepModalVisible] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
   const { height, width } = useWindowDimensions();
 
   if (!currentTrack) return null;
 
   const liked = isLiked(currentTrack.id);
   const downloaded = isDownloaded(currentTrack.id);
-  const mediaSize = Math.min(width - 48, height * 0.38, 360);
+  const mediaSize = Math.min(width - 56, height * 0.42, 360);
+
+  const handleCycleSpeed = () => {
+    const curIdx = SPEED_STEPS.indexOf(playbackRate);
+    const nextIdx = (curIdx + 1) % SPEED_STEPS.length;
+    setPlaybackRate(SPEED_STEPS[nextIdx]);
+  };
+
+  const formatTimerBadge = () => {
+    if (!sleepTimerSecondsLeft) return null;
+    const m = Math.floor(sleepTimerSecondsLeft / 60);
+    return `${m}m`;
+  };
 
   return (
     <Modal
@@ -58,72 +78,64 @@ export default function NowPlayingModal() {
     >
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          {/* Top Bar with Mode Selector */}
+          {/* Top Bar (Spotify Style) */}
           <View style={styles.topBar}>
             <TouchableOpacity
               style={styles.topIconBtn}
-              onPress={() => setIsNowPlayingOpen(false)}
+              onPress={() => {
+                if (showLyrics) {
+                  setShowLyrics(false);
+                } else {
+                  setIsNowPlayingOpen(false);
+                }
+              }}
               hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             >
-              <Ionicons name="chevron-down" size={28} color={colors.textPrimary} />
+              <Ionicons name="chevron-down" size={26} color={colors.textPrimary} />
             </TouchableOpacity>
 
-            <View style={styles.viewModeTabs}>
-              <TouchableOpacity
-                style={[styles.modeTab, activeViewMode === 'art' && styles.activeModeTab]}
-                onPress={() => setActiveViewMode('art')}
-              >
-                <Text
-                  style={[
-                    styles.modeTabText,
-                    activeViewMode === 'art' && styles.activeModeTabText,
-                  ]}
-                >
-                  Cover
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modeTab, activeViewMode === 'lyrics' && styles.activeModeTab]}
-                onPress={() => setActiveViewMode('lyrics')}
-              >
-                <Text
-                  style={[
-                    styles.modeTabText,
-                    activeViewMode === 'lyrics' && styles.activeModeTabText,
-                  ]}
-                >
-                  Lyrics
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modeTab, activeViewMode === 'video' && styles.activeModeTab]}
-                onPress={() => setActiveViewMode('video')}
-              >
-                <Text
-                  style={[
-                    styles.modeTabText,
-                    activeViewMode === 'video' && styles.activeModeTabText,
-                  ]}
-                >
-                  Video
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerSubtext}>PLAYING FROM SEARCH</Text>
+              <Text style={styles.headerTrackContext} numberOfLines={1}>
+                {showLyrics ? 'Live Lyrics' : 'Now Playing'}
+              </Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.topIconBtn}
-              onPress={() => setPlaylistModalVisible(true)}
-              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-            >
-              <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
+            <View style={styles.headerRightActions}>
+              <TouchableOpacity
+                style={styles.topIconBtn}
+                onPress={() => setSleepModalVisible(true)}
+                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              >
+                <Ionicons
+                  name="moon-outline"
+                  size={20}
+                  color={(sleepTimerMinutes !== null || sleepTimerSecondsLeft) ? colors.accent : colors.textPrimary}
+                />
+                {formatTimerBadge() && (
+                  <View style={styles.timerBadge}>
+                    <Text style={styles.timerBadgeText}>{formatTimerBadge()}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.topIconBtn}
+                onPress={() => setPlaylistModalVisible(true)}
+                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              >
+                <Ionicons name="ellipsis-horizontal" size={22} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Central Stage: Artwork / Synced Lyrics / Video */}
+          {/* Center Stage: Hero Album Artwork OR Synced Lyrics */}
           <View style={styles.centralStage}>
-            {activeViewMode === 'art' && (
+            {showLyrics ? (
+              <View style={[styles.lyricsStage, { height: height * 0.48 }]}>
+                <LyricsView track={currentTrack} />
+              </View>
+            ) : (
               <View style={styles.artWrapper}>
                 <Image
                   source={{ uri: currentTrack.thumbnail }}
@@ -132,45 +144,12 @@ export default function NowPlayingModal() {
                 />
               </View>
             )}
-
-            {activeViewMode === 'lyrics' && (
-              <View style={[styles.lyricsWrapper, { height: height * 0.44 }]}>
-                <LyricsView track={currentTrack} />
-              </View>
-            )}
-
-            {activeViewMode === 'video' && (
-              <View
-                style={[
-                  styles.videoContainer,
-                  { width: mediaSize, height: (mediaSize * 9) / 16 },
-                ]}
-              >
-                {Platform.OS === 'web' ? (
-                  <iframe
-                    src={`https://www.youtube.com/embed/${currentTrack.id}?autoplay=1&enablejsapi=1&playsinline=1`}
-                    title={currentTrack.title}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 'none', borderRadius: 12 }}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <Image
-                    source={{ uri: currentTrack.thumbnail }}
-                    style={{ width: '100%', height: '100%', borderRadius: 12 }}
-                    resizeMode="cover"
-                  />
-                )}
-              </View>
-            )}
           </View>
 
-          {/* Track Meta & Actions Row */}
+          {/* Track Meta & Like Button */}
           <View style={styles.trackInfoRow}>
             <View style={styles.textContainer}>
-              <Text style={styles.trackTitle} numberOfLines={2}>
+              <Text style={styles.trackTitle} numberOfLines={1}>
                 {currentTrack.title}
               </Text>
               <Text style={styles.channelName} numberOfLines={1}>
@@ -178,21 +157,15 @@ export default function NowPlayingModal() {
               </Text>
             </View>
 
-            <View style={styles.sideActionsRow}>
-              {/* Download Action */}
+            <View style={styles.metaActions}>
               <TouchableOpacity
-                style={styles.actionIconBtn}
-                onPress={() => downloadTrack(currentTrack)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={styles.speedPill}
+                onPress={handleCycleSpeed}
+                activeOpacity={0.7}
               >
-                <Ionicons
-                  name={downloaded ? 'checkmark-circle' : 'cloud-download-outline'}
-                  size={26}
-                  color={downloaded ? colors.accent : colors.textSecondary}
-                />
+                <Text style={styles.speedPillText}>{playbackRate}x</Text>
               </TouchableOpacity>
 
-              {/* Like Action */}
               <TouchableOpacity
                 style={styles.actionIconBtn}
                 onPress={() => toggleLike(currentTrack)}
@@ -200,14 +173,14 @@ export default function NowPlayingModal() {
               >
                 <Ionicons
                   name={liked ? 'heart' : 'heart-outline'}
-                  size={26}
+                  size={24}
                   color={liked ? colors.accentPink : colors.textPrimary}
                 />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Seek Bar */}
+          {/* Custom Seek Bar */}
           <View style={styles.seekContainer}>
             <CustomSeekBar
               position={playbackPosition}
@@ -215,20 +188,20 @@ export default function NowPlayingModal() {
               onSeek={seekTo}
               showTimes={true}
               barHeight={4}
-              thumbSize={14}
+              thumbSize={13}
             />
           </View>
 
-          {/* Controls Row */}
+          {/* Playback Controls (Spotify Style) */}
           <View style={styles.controlsRow}>
             <TouchableOpacity
               style={styles.controlBtn}
               onPress={toggleShuffle}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons
                 name="shuffle"
-                size={24}
+                size={22}
                 color={isShuffle ? colors.accent : colors.textMuted}
               />
               {isShuffle && <View style={styles.activeDot} />}
@@ -237,7 +210,7 @@ export default function NowPlayingModal() {
             <TouchableOpacity
               style={styles.controlBtn}
               onPress={prevTrack}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons name="play-skip-back" size={28} color={colors.textPrimary} />
             </TouchableOpacity>
@@ -245,12 +218,12 @@ export default function NowPlayingModal() {
             <TouchableOpacity
               style={styles.playPauseBtn}
               onPress={togglePlayPause}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
                 size={30}
-                color="#080B08"
+                color="#121212"
                 style={!isPlaying ? { marginLeft: 3 } : null}
               />
             </TouchableOpacity>
@@ -258,7 +231,7 @@ export default function NowPlayingModal() {
             <TouchableOpacity
               style={styles.controlBtn}
               onPress={nextTrack}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons name="play-skip-forward" size={28} color={colors.textPrimary} />
             </TouchableOpacity>
@@ -266,11 +239,11 @@ export default function NowPlayingModal() {
             <TouchableOpacity
               style={styles.controlBtn}
               onPress={toggleRepeat}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons
                 name="repeat"
-                size={24}
+                size={22}
                 color={repeatMode !== 'off' ? colors.accent : colors.textMuted}
               />
               {repeatMode === 'one' && <Text style={styles.repeatOneBadge}>1</Text>}
@@ -278,34 +251,49 @@ export default function NowPlayingModal() {
             </TouchableOpacity>
           </View>
 
-          {/* Bottom Bar: Playlist shortcut & Lyrics toggle */}
+          {/* Bottom Toolbar: Lyrics Expand Card & Add to Playlist */}
           <View style={styles.bottomToolbar}>
             <TouchableOpacity
-              style={styles.toolbarAction}
-              onPress={() => setPlaylistModalVisible(true)}
-            >
-              <Ionicons name="add-circle-outline" size={22} color={colors.textSecondary} />
-              <Text style={styles.toolbarText}>Add to Playlist</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modeShortcut}
-              onPress={() => setActiveViewMode(activeViewMode === 'lyrics' ? 'art' : 'lyrics')}
+              style={styles.lyricsShortcut}
+              onPress={() => setShowLyrics((prev) => !prev)}
+              activeOpacity={0.75}
             >
               <Ionicons
-                name="sparkles"
-                size={16}
-                color={activeViewMode === 'lyrics' ? colors.accent : colors.textSecondary}
+                name="mic-outline"
+                size={18}
+                color={showLyrics ? colors.accent : colors.textSecondary}
               />
               <Text
                 style={[
-                  styles.modeShortcutText,
-                  activeViewMode === 'lyrics' && { color: colors.accent },
+                  styles.lyricsShortcutText,
+                  showLyrics && { color: colors.accent, fontWeight: '800' },
                 ]}
               >
-                {activeViewMode === 'lyrics' ? 'Album Art' : 'Live Lyrics'}
+                {showLyrics ? 'Hide Lyrics' : 'Lyrics'}
               </Text>
             </TouchableOpacity>
+
+            <View style={styles.bottomRightIcons}>
+              <TouchableOpacity
+                style={styles.bottomIconBtn}
+                onPress={() => downloadTrack(currentTrack)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={downloaded ? 'checkmark-circle' : 'cloud-download-outline'}
+                  size={20}
+                  color={downloaded ? colors.accent : colors.textSecondary}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.bottomIconBtn}
+                onPress={() => setPlaylistModalVisible(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="add-circle-outline" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -313,6 +301,11 @@ export default function NowPlayingModal() {
           visible={playlistModalVisible}
           track={currentTrack}
           onClose={() => setPlaylistModalVisible(false)}
+        />
+
+        <SleepTimerModal
+          visible={sleepModalVisible}
+          onClose={() => setSleepModalVisible(false)}
         />
       </SafeAreaView>
     </Modal>
@@ -322,11 +315,11 @@ export default function NowPlayingModal() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#121212',
   },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#121212',
     paddingHorizontal: 24,
     justifyContent: 'space-between',
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
@@ -335,41 +328,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'android' ? 16 : 8,
-    marginBottom: 8,
+    paddingTop: Platform.OS === 'android' ? 14 : 6,
+    marginBottom: 6,
   },
   topIconBtn: {
     padding: 6,
+    position: 'relative',
   },
-  viewModeTabs: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 20,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
+  headerTitleWrap: {
+    alignItems: 'center',
+    flex: 1,
+    paddingHorizontal: 12,
   },
-  modeTab: {
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-  },
-  activeModeTab: {
-    backgroundColor: colors.accent,
-  },
-  modeTabText: {
-    color: colors.textSecondary,
-    fontSize: 12,
+  headerSubtext: {
+    color: colors.textMuted,
+    fontSize: 10.5,
     fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
-  activeModeTabText: {
-    color: '#080B08',
+  headerTrackContext: {
+    color: colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timerBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  timerBadgeText: {
+    color: '#121212',
+    fontSize: 8,
     fontWeight: '900',
   },
   centralStage: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 8,
+    marginVertical: 4,
     minHeight: 220,
   },
   artWrapper: {
@@ -377,65 +383,68 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   albumArt: {
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.cardBorderGlow,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.6,
     shadowRadius: 24,
     elevation: 12,
   },
-  lyricsWrapper: {
+  lyricsStage: {
     width: '100%',
-  },
-  videoContainer: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-    borderWidth: 1,
-    borderColor: colors.cardBorderGlow,
   },
   trackInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: 6,
+    marginTop: 8,
+    marginBottom: 2,
   },
   textContainer: {
     flex: 1,
-    marginRight: 16,
+    marginRight: 14,
   },
   trackTitle: {
     color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '800',
-    lineHeight: 26,
-    marginBottom: 4,
+    marginBottom: 2,
+    letterSpacing: -0.3,
   },
   channelName: {
     color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
   },
-  sideActionsRow: {
+  metaActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  speedPill: {
+    backgroundColor: '#242424',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  speedPillText: {
+    color: colors.textPrimary,
+    fontSize: 11,
+    fontWeight: '700',
   },
   actionIconBtn: {
     padding: 6,
-    marginLeft: 6,
   },
   seekContainer: {
-    marginVertical: 4,
+    marginVertical: 2,
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: 6,
-    paddingHorizontal: 8,
+    marginVertical: 4,
+    paddingHorizontal: 6,
   },
   controlBtn: {
     padding: 8,
@@ -446,14 +455,14 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.accent,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   activeDot: {
     position: 'absolute',
@@ -477,32 +486,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
-  toolbarAction: {
+  lyricsShortcut: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#242424',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
-  toolbarText: {
+  lyricsShortcutText: {
     color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 6,
   },
-  modeShortcut: {
+  bottomRightIcons: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
+    gap: 12,
   },
-  modeShortcutText: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    marginLeft: 6,
+  bottomIconBtn: {
+    padding: 4,
   },
 });

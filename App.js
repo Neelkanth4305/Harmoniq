@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from './src/theme/colors';
-import { PlayerProvider, usePlayer } from './src/context/PlayerContext';
+import { PlayerProvider } from './src/context/PlayerContext';
 import YouTubeEngine from './src/components/YouTubeEngine';
 import MiniPlayer from './src/components/MiniPlayer';
 import DesktopLayout from './src/components/DesktopLayout';
-import SplashScreen from './src/components/SplashScreen';
 import NowPlayingModal from './src/screens/NowPlayingModal';
-import AIAssistantModal, { AIAssistantFAB } from './src/components/AIAssistantModal';
 
 import HomeScreen from './src/screens/HomeScreen';
 import SearchScreen from './src/screens/SearchScreen';
@@ -28,7 +26,7 @@ import LibraryScreen from './src/screens/LibraryScreen';
 
 const Tab = createBottomTabNavigator();
 
-// Dim Soft Green Mobile Bottom Navigation Bar
+// Clean, Professional Dark Mobile Navigation Bar (Spotify Style)
 function HarmoniqBottomBar({ state, descriptors, navigation }) {
   const insets = useSafeAreaInsets();
 
@@ -54,17 +52,17 @@ function HarmoniqBottomBar({ state, descriptors, navigation }) {
             }
           };
 
-          let iconName = 'planet';
-          let label = 'Discover';
+          let iconName = 'home';
+          let label = 'Home';
           if (route.name === 'Home') {
-            iconName = isFocused ? 'planet' : 'planet-outline';
-            label = 'Discover';
+            iconName = isFocused ? 'home' : 'home-outline';
+            label = 'Home';
           } else if (route.name === 'Search') {
             iconName = isFocused ? 'search' : 'search-outline';
             label = 'Search';
           } else if (route.name === 'Library') {
-            iconName = isFocused ? 'file-tray-full' : 'file-tray-full-outline';
-            label = 'Vault';
+            iconName = isFocused ? 'library' : 'library-outline';
+            label = 'Your Library';
           }
 
           return (
@@ -72,19 +70,17 @@ function HarmoniqBottomBar({ state, descriptors, navigation }) {
               key={route.key}
               onPress={onPress}
               style={styles.tabButton}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
             >
-              <View style={[styles.iconWrapper, isFocused && styles.activeIconWrapper]}>
-                <Ionicons
-                  name={iconName}
-                  size={20}
-                  color={isFocused ? colors.accentLight : colors.textMuted}
-                />
-              </View>
+              <Ionicons
+                name={iconName}
+                size={22}
+                color={isFocused ? colors.textPrimary : colors.textMuted}
+              />
               <Text
                 style={[
                   styles.tabLabel,
-                  { color: isFocused ? colors.accentLight : colors.textMuted },
+                  { color: isFocused ? colors.textPrimary : colors.textMuted },
                 ]}
               >
                 {label}
@@ -100,8 +96,6 @@ function HarmoniqBottomBar({ state, descriptors, navigation }) {
 function MainApp() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width > 900;
-  const [aiModalVisible, setAiModalVisible] = useState(false);
-  const { currentTrack } = usePlayer();
 
   if (isDesktop) {
     return (
@@ -109,24 +103,10 @@ function MainApp() {
         <DesktopLayout />
         <YouTubeEngine />
         <NowPlayingModal />
-
-        {/* Floating AI Mood Assistant Button (Small circle at bottom right corner) */}
-        <AIAssistantFAB
-          onPress={() => setAiModalVisible(true)}
-          bottomOffset={105}
-        />
-        <AIAssistantModal
-          visible={aiModalVisible}
-          onClose={() => setAiModalVisible(false)}
-        />
-
         <StatusBar style="light" backgroundColor={colors.background} />
       </View>
     );
   }
-
-  // On mobile: adjust FAB position if miniplayer is visible
-  const fabBottomOffset = currentTrack ? 130 : 72;
 
   return (
     <View style={styles.root}>
@@ -152,16 +132,6 @@ function MainApp() {
         </Tab.Navigator>
       </NavigationContainer>
 
-      {/* Floating AI Mood Assistant Button (Small circle at bottom right corner) */}
-      <AIAssistantFAB
-        onPress={() => setAiModalVisible(true)}
-        bottomOffset={fabBottomOffset}
-      />
-      <AIAssistantModal
-        visible={aiModalVisible}
-        onClose={() => setAiModalVisible(false)}
-      />
-
       {/* Invisible Background YouTube Audio Bridge */}
       <YouTubeEngine />
 
@@ -174,12 +144,6 @@ function MainApp() {
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
-
-  if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
-  }
-
   return (
     <SafeAreaProvider>
       <PlayerProvider>
@@ -195,13 +159,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   bottomBarContainer: {
-    backgroundColor: colors.playerBar,
+    backgroundColor: '#121212',
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   tabsRow: {
     flexDirection: 'row',
-    height: 54,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'space-around',
   },
@@ -209,19 +173,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
-  },
-  iconWrapper: {
-    padding: 3,
-    borderRadius: 12,
-  },
-  activeIconWrapper: {
-    backgroundColor: colors.glowDeep,
+    paddingVertical: 4,
   },
   tabLabel: {
     fontSize: 10,
     fontWeight: '700',
-    marginTop: 2,
-    letterSpacing: 0.3,
+    marginTop: 3,
+    letterSpacing: 0.2,
   },
 });

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -14,6 +15,15 @@ import { usePlayer } from '../context/PlayerContext';
 import { searchYouTubeMusic } from '../api/youtube';
 import TrackCard from '../components/TrackCard';
 import PlaylistModal from '../components/PlaylistModal';
+
+const BROWSE_CATEGORIES = [
+  { id: 'b1', title: 'Top Hits', color: '#8400E7', query: 'Top 50 Global Songs' },
+  { id: 'b2', title: 'Bollywood', color: '#E1118C', query: 'Bollywood Hit Songs' },
+  { id: 'b3', title: 'Pop Magic', color: '#1E3264', query: 'Top Pop English Songs' },
+  { id: 'b4', title: 'Gym & Workout', color: '#E91429', query: 'Workout Gym Motivation' },
+  { id: 'b5', title: 'Soulful Acoustic', color: '#509BF5', query: 'Acoustic Guitar Hits' },
+  { id: 'b6', title: 'Rock Classics', color: '#B02897', query: 'Best Classic Rock Songs' },
+];
 
 export default function SearchScreen({ route }) {
   const {
@@ -95,13 +105,18 @@ export default function SearchScreen({ route }) {
 
   return (
     <View style={styles.container}>
+      {/* Title */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Search</Text>
+      </View>
+
       {/* Search Input Bar */}
       <View style={styles.searchBarContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={colors.accent} style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Search any song, artist, album worldwide..."
+            placeholder="What do you want to listen to?"
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={handleQueryChange}
@@ -128,7 +143,7 @@ export default function SearchScreen({ route }) {
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Searching live music...</Text>
+          <Text style={styles.loadingText}>Searching music...</Text>
         </View>
       )}
 
@@ -138,6 +153,7 @@ export default function SearchScreen({ route }) {
           data={results}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => (
             <TrackCard
               track={item}
@@ -151,40 +167,65 @@ export default function SearchScreen({ route }) {
         />
       )}
 
-      {/* Empty State / Recent Searches */}
+      {/* Empty State: Recent Searches + Browse Categories */}
       {!loading && results.length === 0 && (
-        <View style={styles.emptyContainer}>
-          {recentSearches && recentSearches.length > 0 ? (
-            <View style={styles.recentSection}>
-              <View style={styles.recentHeaderRow}>
-                <Text style={styles.recentTitle}>Recent Searches</Text>
-                <TouchableOpacity onPress={clearRecentSearches}>
-                  <Text style={styles.clearRecentText}>Clear all</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.recentTagsWrapper}>
-                {recentSearches.map((term, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.recentTag}
-                    onPress={() => handleRecentClick(term)}
-                  >
-                    <Ionicons name="time-outline" size={15} color={colors.accent} style={{ marginRight: 6 }} />
-                    <Text style={styles.recentTagText}>{term}</Text>
-                  </TouchableOpacity>
-                ))}
+        <FlatList
+          data={[]}
+          ListHeaderComponent={
+            <View style={styles.emptyContainer}>
+              {recentSearches && recentSearches.length > 0 && (
+                <View style={styles.recentSection}>
+                  <View style={styles.recentHeaderRow}>
+                    <Text style={styles.sectionHeaderTitle}>Recent Searches</Text>
+                    <TouchableOpacity onPress={clearRecentSearches}>
+                      <Text style={styles.clearRecentText}>Clear all</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.recentTagsWrapper}>
+                    {recentSearches.map((term, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.recentTag}
+                        onPress={() => handleRecentClick(term)}
+                      >
+                        <Ionicons name="time-outline" size={14} color={colors.textSecondary} style={{ marginRight: 6 }} />
+                        <Text style={styles.recentTagText}>{term}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Browse All Categories */}
+              <View style={styles.browseSection}>
+                <Text style={styles.sectionHeaderTitle}>Browse All</Text>
+                <View style={styles.browseGrid}>
+                  {BROWSE_CATEGORIES.map((cat) => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[styles.browseCard, { backgroundColor: cat.color }]}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setQuery(cat.query);
+                        executeSearch(cat.query);
+                      }}
+                    >
+                      <Text style={styles.browseCardTitle}>{cat.title}</Text>
+                      <Ionicons
+                        name="musical-notes"
+                        size={28}
+                        color="rgba(255, 255, 255, 0.3)"
+                        style={styles.browseCardIcon}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </View>
-          ) : (
-            <View style={styles.placeholderState}>
-              <Ionicons name="radio-outline" size={64} color={colors.surfaceLight} />
-              <Text style={styles.placeholderTitle}>Discover Infinite Sound</Text>
-              <Text style={styles.placeholderSubtitle}>
-                Search any track to stream live music and synced karaoke lyrics.
-              </Text>
-            </View>
-          )}
-        </View>
+          }
+          keyExtractor={() => 'empty'}
+          contentContainerStyle={{ paddingBottom: 120 }}
+        />
       )}
 
       {/* Add to Playlist Modal */}
@@ -202,31 +243,41 @@ export default function SearchScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#121212',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 16 : 8,
+    paddingBottom: 4,
+  },
+  headerTitle: {
+    color: colors.textPrimary,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   searchBarContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingVertical: 10,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 48,
+    backgroundColor: '#242424',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 46,
     borderWidth: 1,
-    borderColor: colors.cardBorderGlow,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   searchIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   input: {
     flex: 1,
     color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     height: '100%',
   },
   clearBtn: {
@@ -235,7 +286,7 @@ const styles = StyleSheet.create({
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 10,
@@ -262,67 +313,77 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   emptyContainer: {
-    flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 8,
   },
   recentSection: {
-    marginTop: 8,
+    marginBottom: 24,
   },
   recentHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  recentTitle: {
+  sectionHeaderTitle: {
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   clearRecentText: {
-    color: colors.accent,
+    color: colors.textSecondary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   recentTagsWrapper: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 8,
   },
   recentTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 10,
+    backgroundColor: '#242424',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   recentTagText: {
     color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12.5,
+    fontWeight: '500',
   },
-  placeholderState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 80,
-    paddingHorizontal: 32,
-  },
-  placeholderTitle: {
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
-    marginTop: 16,
-  },
-  placeholderSubtitle: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
+  browseSection: {
     marginTop: 8,
-    lineHeight: 20,
+  },
+  browseGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  browseCard: {
+    width: '48%',
+    height: 84,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    position: 'relative',
+    overflow: 'hidden',
+    justifyContent: 'flex-start',
+  },
+  browseCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    maxWidth: '80%',
+  },
+  browseCardIcon: {
+    position: 'absolute',
+    bottom: -4,
+    right: 4,
+    transform: [{ rotate: '15deg' }],
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { usePlayer } from '../context/PlayerContext';
@@ -18,28 +18,31 @@ export default function TrackCard({
 
   if (!track) return null;
 
-  // 1. GRID VARIANT (Home quick launch)
+  // 1. GRID VARIANT (Home quick launch 2-column)
   if (variant === 'grid') {
     return (
       <TouchableOpacity
         style={[styles.gridCard, isPlayingThis && styles.activeGridCard]}
-        activeOpacity={0.8}
+        activeOpacity={0.75}
         onPress={onPress}
       >
         <Image source={{ uri: track.thumbnail }} style={styles.gridImage} resizeMode="cover" />
         <View style={styles.gridInfo}>
           <Text
-            style={[styles.gridTitle, isPlayingThis && { color: colors.accent }]}
-            numberOfLines={2}
+            style={[styles.gridTitle, isPlayingThis && styles.activeText]}
+            numberOfLines={1}
           >
             {track.title}
+          </Text>
+          <Text style={styles.gridChannel} numberOfLines={1}>
+            {track.channel}
           </Text>
         </View>
         <View style={styles.gridPlayBtn}>
           <Ionicons
-            name={isPlayingThis ? 'pulse' : 'play'}
-            size={18}
-            color={isPlayingThis ? colors.accent : colors.textPrimary}
+            name={isPlayingThis ? 'volume-high' : 'play'}
+            size={16}
+            color={isPlayingThis ? colors.accent : colors.textSecondary}
           />
         </View>
       </TouchableOpacity>
@@ -51,19 +54,19 @@ export default function TrackCard({
     return (
       <TouchableOpacity
         style={[styles.carouselCard, isPlayingThis && styles.activeCarouselCard]}
-        activeOpacity={0.8}
+        activeOpacity={0.75}
         onPress={onPress}
       >
         <View style={styles.carouselImageWrapper}>
           <Image source={{ uri: track.thumbnail }} style={styles.carouselImage} resizeMode="cover" />
           {isPlayingThis && (
             <View style={styles.playingBadge}>
-              <Ionicons name="pulse" size={14} color="#080B08" />
+              <Ionicons name="volume-high" size={13} color="#121212" />
             </View>
           )}
         </View>
         <Text
-          style={[styles.carouselTitle, isPlayingThis && { color: colors.accent }]}
+          style={[styles.carouselTitle, isPlayingThis && styles.activeText]}
           numberOfLines={1}
         >
           {track.title}
@@ -83,7 +86,7 @@ export default function TrackCard({
       onPress={onPress}
     >
       {index !== undefined && (
-        <Text style={[styles.indexNumber, isPlayingThis && { color: colors.accent }]}>
+        <Text style={[styles.indexNumber, isPlayingThis && styles.activeText]}>
           {isPlayingThis ? '▶' : index + 1}
         </Text>
       )}
@@ -92,7 +95,7 @@ export default function TrackCard({
 
       <View style={styles.listInfo}>
         <Text
-          style={[styles.listTitle, isPlayingThis && { color: colors.accent }]}
+          style={[styles.listTitle, isPlayingThis && styles.activeText]}
           numberOfLines={1}
         >
           {track.title}
@@ -111,7 +114,7 @@ export default function TrackCard({
         >
           <Ionicons
             name={downloaded ? 'checkmark-circle' : 'cloud-download-outline'}
-            size={20}
+            size={18}
             color={downloaded ? colors.accent : colors.textSecondary}
           />
         </TouchableOpacity>
@@ -124,7 +127,7 @@ export default function TrackCard({
         >
           <Ionicons
             name={liked ? 'heart' : 'heart-outline'}
-            size={20}
+            size={18}
             color={liked ? colors.accentPink : colors.textSecondary}
           />
         </TouchableOpacity>
@@ -136,7 +139,7 @@ export default function TrackCard({
             onPress={() => onAddToPlaylist(track)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="add-circle-outline" size={20} color={colors.textSecondary} />
+            <Ionicons name="ellipsis-vertical" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -145,27 +148,31 @@ export default function TrackCard({
 }
 
 const styles = StyleSheet.create({
+  activeText: {
+    color: colors.accent,
+  },
+
   // Grid
   gridCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     overflow: 'hidden',
     marginBottom: 8,
     marginHorizontal: 4,
-    height: 58,
+    height: 54,
   },
   activeGridCard: {
-    borderColor: colors.accent,
-    backgroundColor: 'rgba(34, 197, 94, 0.16)',
+    backgroundColor: colors.surfaceLight,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
   gridImage: {
-    width: 58,
-    height: 58,
+    width: 54,
+    height: 54,
     backgroundColor: colors.surfaceLight,
   },
   gridInfo: {
@@ -175,38 +182,42 @@ const styles = StyleSheet.create({
   },
   gridTitle: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    lineHeight: 17,
+    lineHeight: 16,
+  },
+  gridChannel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
   },
   gridPlayBtn: {
-    paddingRight: 12,
+    paddingRight: 10,
   },
 
   // Carousel
   carouselCard: {
-    width: 148,
-    marginRight: 14,
+    width: 140,
     backgroundColor: colors.surface,
     padding: 10,
-    borderRadius: 14,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   activeCarouselCard: {
-    borderColor: colors.accent,
-    backgroundColor: 'rgba(34, 197, 94, 0.16)',
+    backgroundColor: colors.surfaceLight,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
   carouselImageWrapper: {
     position: 'relative',
-    width: 128,
-    height: 128,
+    width: 120,
+    height: 120,
     marginBottom: 8,
   },
   carouselImage: {
-    width: 128,
-    height: 128,
-    borderRadius: 10,
+    width: 120,
+    height: 120,
+    borderRadius: 6,
     backgroundColor: colors.surfaceLight,
   },
   playingBadge: {
@@ -214,48 +225,44 @@ const styles = StyleSheet.create({
     bottom: 6,
     right: 6,
     backgroundColor: colors.accent,
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 4,
   },
   carouselTitle: {
     color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   carouselSubtitle: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11.5,
   },
 
   // List
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     marginBottom: 4,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    backgroundColor: 'transparent',
   },
   activeRow: {
-    backgroundColor: 'rgba(34, 197, 94, 0.16)',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
+    backgroundColor: colors.surfaceLight,
   },
   indexNumber: {
-    width: 24,
+    width: 22,
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
-    marginRight: 8,
+    marginRight: 6,
   },
   listImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 6,
     backgroundColor: colors.surfaceLight,
   },
   listInfo: {
@@ -265,9 +272,9 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '600',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   listSubtitle: {
     color: colors.textSecondary,
@@ -276,9 +283,9 @@ const styles = StyleSheet.create({
   listActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   actionBtn: {
     padding: 6,
-    marginLeft: 4,
   },
 });

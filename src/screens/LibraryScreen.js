@@ -30,7 +30,7 @@ export default function LibraryScreen() {
     importSpotify,
   } = usePlayer();
 
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'playlists' | 'likes' | 'downloads'
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'likes' | 'downloads'
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [spotifyModalVisible, setSpotifyModalVisible] = useState(false);
@@ -104,11 +104,11 @@ export default function LibraryScreen() {
               {freshPlaylist.name}
             </Text>
             <Text style={styles.detailSubtitle}>
-              {freshPlaylist.tracks?.length || 0} tracks {freshPlaylist.isSpotifyImport ? '• Imported from Spotify' : ''}
+              {freshPlaylist.tracks?.length || 0} tracks {freshPlaylist.isSpotifyImport ? '• Spotify Import' : ''}
             </Text>
           </View>
           <TouchableOpacity style={styles.moreBtn} onPress={() => handleDeletePlaylist(freshPlaylist)}>
-            <Ionicons name="trash-outline" size={22} color={colors.textSecondary} />
+            <Ionicons name="trash-outline" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -118,7 +118,7 @@ export default function LibraryScreen() {
               style={styles.bigPlayBtn}
               onPress={() => playTrack(freshPlaylist.tracks[0], freshPlaylist.tracks)}
             >
-              <Ionicons name="play" size={26} color="#080B08" style={{ marginLeft: 2 }} />
+              <Ionicons name="play" size={24} color="#121212" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           </View>
         )}
@@ -127,9 +127,10 @@ export default function LibraryScreen() {
           data={freshPlaylist.tracks || []}
           keyExtractor={(item, index) => `${item.id}_${index}`}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyDetail}>
-              <Ionicons name="musical-notes-outline" size={48} color={colors.textSecondary} />
+              <Ionicons name="musical-notes-outline" size={44} color={colors.textMuted} />
               <Text style={styles.emptyDetailText}>No tracks in this playlist yet.</Text>
             </View>
           }
@@ -148,7 +149,7 @@ export default function LibraryScreen() {
                 style={styles.removeTrackBtn}
                 onPress={() => removeFromPlaylist(freshPlaylist.id, item.id)}
               >
-                <Ionicons name="remove-circle-outline" size={20} color={colors.textSecondary} />
+                <Ionicons name="close-circle-outline" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           )}
@@ -166,26 +167,26 @@ export default function LibraryScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Family Vault</Text>
+        <Text style={styles.headerTitle}>Your Library</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerIconBtn}
             onPress={() => setSpotifyModalVisible(true)}
-            title="Import Spotify Playlist"
+            accessibilityLabel="Import Spotify Playlist"
           >
-            <Ionicons name="logo-electron" size={20} color={colors.accent} />
+            <Ionicons name="link-outline" size={19} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconBtn}
             onPress={() => setCreateModalVisible(true)}
-            title="Create Playlist"
+            accessibilityLabel="Create Playlist"
           >
-            <Ionicons name="add" size={24} color={colors.accent} />
+            <Ionicons name="add" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Tabs */}
+      {/* Tabs / Filter Pills */}
       <View style={styles.chipsRow}>
         <TouchableOpacity
           style={[styles.chip, activeTab === 'all' && styles.activeChip]}
@@ -217,25 +218,27 @@ export default function LibraryScreen() {
         data={activeData}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           activeTab === 'all' ? (
             <>
-              {/* Spotify Import Quick Shortcut */}
+              {/* Spotify Import Quick Shortcut Card */}
               <TouchableOpacity
                 style={styles.spotifyShortcutCard}
                 onPress={() => setSpotifyModalVisible(true)}
+                activeOpacity={0.75}
               >
                 <View style={styles.spotifyIconBg}>
-                  <Ionicons name="link" size={20} color={colors.accent} />
+                  <Ionicons name="logo-electron" size={18} color={colors.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.spotifyCardTitle}>Import Spotify Playlist</Text>
-                  <Text style={styles.spotifyCardSubtitle}>Paste link & sync all tracks into Harmoniq</Text>
+                  <Text style={styles.spotifyCardSubtitle}>Paste link & sync all tracks</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
 
-              <Text style={styles.sectionHeading}>Family Playlists</Text>
+              <Text style={styles.sectionHeading}>Playlists</Text>
             </>
           ) : null
         }
@@ -243,7 +246,7 @@ export default function LibraryScreen() {
           <View style={styles.emptyDetail}>
             <Ionicons
               name={activeTab === 'downloads' ? 'cloud-download-outline' : 'heart-outline'}
-              size={48}
+              size={44}
               color={colors.textMuted}
             />
             <Text style={styles.emptyDetailText}>
@@ -251,8 +254,8 @@ export default function LibraryScreen() {
             </Text>
             <Text style={styles.emptyDetailSubtext}>
               {activeTab === 'downloads'
-                ? 'Tap the download icon on any song to save it for offline listening.'
-                : 'Explore tracks and save your favorites to your vault!'}
+                ? 'Tap the download icon on any song to save it for quick access.'
+                : 'Explore tracks and save your favorites to your library!'}
             </Text>
           </View>
         }
@@ -278,7 +281,7 @@ export default function LibraryScreen() {
               <View style={styles.playlistIconBg}>
                 <Ionicons
                   name={item.isSpotifyImport ? 'logo-electron' : 'musical-notes'}
-                  size={22}
+                  size={20}
                   color={colors.accent}
                 />
               </View>
@@ -288,7 +291,7 @@ export default function LibraryScreen() {
                   {item.tracks?.length || 0} tracks {item.isSpotifyImport ? '• Spotify Sync' : ''}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           );
         }}
@@ -303,10 +306,10 @@ export default function LibraryScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Name Your Playlist</Text>
+            <Text style={styles.modalTitle}>Give your playlist a name</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="e.g. Family Roadtrip Hits"
+              placeholder="My Playlist"
               placeholderTextColor={colors.textMuted}
               value={newPlaylistTitle}
               onChangeText={setNewPlaylistTitle}
@@ -341,12 +344,12 @@ export default function LibraryScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <Ionicons name="logo-electron" size={24} color={colors.accent} style={{ marginRight: 8 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <Ionicons name="musical-notes" size={22} color={colors.accent} style={{ marginRight: 8 }} />
               <Text style={styles.modalTitle}>Import Spotify Playlist</Text>
             </View>
             <Text style={styles.modalSubtitle}>
-              Paste any public Spotify playlist link below to import all its songs into Harmoniq:
+              Paste any public Spotify playlist link below to import all its tracks:
             </Text>
             <TextInput
               style={styles.modalInput}
@@ -375,9 +378,9 @@ export default function LibraryScreen() {
                 disabled={isImporting}
               >
                 {isImporting ? (
-                  <ActivityIndicator size="small" color="#080B08" />
+                  <ActivityIndicator size="small" color="#121212" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Import Now</Text>
+                  <Text style={styles.modalConfirmText}>Import</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -391,54 +394,54 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#121212',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: Platform.OS === 'android' ? 16 : 8,
+    paddingBottom: 10,
   },
   headerTitle: {
     color: colors.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.surfaceLight,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#242424',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   chipsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     marginBottom: 16,
+    gap: 8,
   },
   chip: {
-    backgroundColor: colors.surfaceLight,
-    paddingVertical: 7,
+    backgroundColor: '#242424',
+    paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 16,
-    marginRight: 8,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   activeChip: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
   chipText: {
     color: colors.textSecondary,
@@ -446,8 +449,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   activeChipText: {
-    color: '#080B08',
-    fontWeight: '900',
+    color: '#121212',
+    fontWeight: '800',
   },
   listContent: {
     paddingHorizontal: 16,
@@ -456,54 +459,54 @@ const styles = StyleSheet.create({
   spotifyShortcutCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+    backgroundColor: '#181818',
     borderWidth: 1,
-    borderColor: colors.cardBorderGlow,
-    padding: 14,
-    borderRadius: 14,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 12,
+    borderRadius: 10,
     marginBottom: 16,
   },
   spotifyIconBg: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#242424',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   spotifyCardTitle: {
     color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   spotifyCardSubtitle: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11.5,
     marginTop: 2,
   },
   sectionHeading: {
     color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 12,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 10,
   },
   playlistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   playlistIconBg: {
-    width: 46,
-    height: 46,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceLight,
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#242424',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   playlistItemInfo: {
     flex: 1,
@@ -511,12 +514,12 @@ const styles = StyleSheet.create({
   },
   playlistItemTitle: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
   },
   playlistItemSubtitle: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11.5,
     marginTop: 2,
   },
   detailHeader: {
@@ -535,7 +538,7 @@ const styles = StyleSheet.create({
   detailPlaylistTitle: {
     color: colors.textPrimary,
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   detailSubtitle: {
     color: colors.textSecondary,
@@ -547,20 +550,16 @@ const styles = StyleSheet.create({
   },
   playHeroRow: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignItems: 'flex-end',
   },
   bigPlayBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 14,
   },
   playlistTrackItem: {
     flexDirection: 'row',
@@ -577,64 +576,65 @@ const styles = StyleSheet.create({
   },
   emptyDetailText: {
     color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     marginTop: 12,
     textAlign: 'center',
   },
   emptyDetailSubtext: {
     color: colors.textSecondary,
-    fontSize: 13,
+    fontSize: 12.5,
     marginTop: 6,
     textAlign: 'center',
     lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(8, 11, 8, 0.88)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
   modalContent: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#242424',
     width: '100%',
-    maxWidth: 420,
-    borderRadius: 16,
+    maxWidth: 400,
+    borderRadius: 14,
     padding: 20,
     borderWidth: 1,
-    borderColor: colors.cardBorderGlow,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalTitle: {
     color: colors.textPrimary,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
   },
   modalSubtitle: {
     color: colors.textSecondary,
-    fontSize: 13,
+    fontSize: 12.5,
     marginBottom: 12,
     lineHeight: 18,
   },
   modalInput: {
-    backgroundColor: colors.background,
+    backgroundColor: '#181818',
     color: colors.textPrimary,
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 13.5,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: 8,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 20,
+    marginTop: 18,
+    gap: 8,
   },
   modalBtn: {
     paddingVertical: 8,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    marginLeft: 10,
   },
   modalCancelBtn: {
     backgroundColor: 'transparent',
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   modalConfirmText: {
-    color: '#080B08',
-    fontWeight: '900',
+    color: '#121212',
+    fontWeight: '800',
   },
 });

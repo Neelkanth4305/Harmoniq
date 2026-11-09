@@ -6,8 +6,9 @@ export default function YouTubeEngine() {
   const {
     currentTrack,
     isPlaying,
+    playbackRate,
     setIsPlaying,
-    setPlaybackPosition,
+    reportEnginePlaybackPosition,
     setDuration,
     handleTrackEnded,
     seekTarget,
@@ -47,25 +48,78 @@ export default function YouTubeEngine() {
     } catch (e) {}
   };
 
-  // Play / Pause handling: ONLY execute when explicitly changed
+  // Ensure unmuted & full volume whenever audio starts
+  const ensureAudible = () => {
+    sendCommand('unMute');
+    sendCommand('setVolume', [100]);
+  };
+
+  // Turn off playback when tab/phone screen turns off or backgrounded
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          setIsPlaying(false);
+          sendCommand('pauseVideo');
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+  }, [setIsPlaying]);
+
+  // Play / Pause handling
   useEffect(() => {
     if (!currentTrack) return;
+    notifyListening();
     if (isPlaying) {
-      notifyListening();
+      ensureAudible();
       sendCommand('playVideo');
     } else {
       sendCommand('pauseVideo');
     }
   }, [isPlaying]);
 
-  // Periodic listener handshake when actively playing
+  // Playback Rate (Speed / Slowed / Nightcore)
+  useEffect(() => {
+    if (playbackRate) {
+      sendCommand('setPlaybackRate', [playbackRate]);
+    }
+  }, [playbackRate]);
+
+  // Periodic listener handshake & time request while playing
   useEffect(() => {
     if (!isPlaying) return;
+    notifyListening();
+
     const interval = setInterval(() => {
       notifyListening();
-    }, 2000);
+    }, 400);
+
     return () => clearInterval(interval);
   }, [isPlaying]);
+
+  // Audio start guarantee: retry handshake every 400ms for 2.4s after song starts
+  useEffect(() => {
+    if (!currentTrack || !currentTrack.id || !isPlaying) return;
+
+    const timer = setInterval(() => {
+      notifyListening();
+      ensureAudible();
+      sendCommand('playVideo');
+    }, 400);
+
+    const cancelTimeout = setTimeout(() => {
+      clearInterval(timer);
+    }, 2400);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(cancelTimeout);
+    };
+  }, [currentTrack?.id, currentTrack?._playNonce, isPlaying]);
 
   // Seeking handling
   useEffect(() => {
@@ -91,23 +145,29 @@ export default function YouTubeEngine() {
 
         if (!data || typeof data !== 'object') return;
 
+        // Handle errors (e.g. video unavailable, embed blocked 150/101)
+        if (data.event === 'onError') {
+          console.warn('YouTube Web Player error code:', data.info);
+          setTimeout(() => {
+            handleTrackEnded();
+          }, 1500);
+          return;
+        }
+
         if (data.event === 'infoDelivery' && data.info) {
           const info = data.info;
 
-          // Track state: 0 = ended, 1 = playing, 2 = paused
+          // Track playback state: 0 = ended, 1 = playing, 2 = paused
           if (info.playerState !== undefined) {
             if (info.playerState === 0) {
               handleTrackEnded();
-            } else if (info.playerState === 1 && isPlayingRef.current) {
-              // Only confirm playing if user actually requested playback
+            } else if (info.playerState === 1 && !isPlayingRef.current) {
               setIsPlaying(true);
-            } else if (info.playerState === 2) {
-              setIsPlaying(false);
             }
           }
 
           if (info.currentTime !== undefined && !isNaN(info.currentTime)) {
-            setPlaybackPosition(info.currentTime);
+            reportEnginePlaybackPosition(info.currentTime, info.duration);
           }
 
           if (info.duration !== undefined && !isNaN(info.duration) && info.duration > 0) {
@@ -115,9 +175,10 @@ export default function YouTubeEngine() {
           }
         }
 
-        // On IFrame ready: DO NOT AUTOPLAY! Only listen.
+        // On IFrame ready
         if (data.event === 'onReady') {
           notifyListening();
+          ensureAudible();
           if (isPlayingRef.current) {
             sendCommand('playVideo');
           } else {
@@ -131,43 +192,39 @@ export default function YouTubeEngine() {
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [handleTrackEnded, setIsPlaying, setPlaybackPosition, setDuration]);
+  }, [handleTrackEnded, setIsPlaying, reportEnginePlaybackPosition, setDuration]);
 
-  // Track changed
+  // Track changed or replayed: Load or cue video
   useEffect(() => {
     if (!currentTrack || !currentTrack.id) return;
-    if (currentVideoIdRef.current === currentTrack.id) return;
 
-    const isFirstMount = currentVideoIdRef.current === null;
+    const isSameId = currentVideoIdRef.current === currentTrack.id;
     currentVideoIdRef.current = currentTrack.id;
 
     notifyListening();
+    ensureAudible();
 
-    if (isFirstMount && !isPlayingRef.current) {
-      // First initial track loaded from storage on website visit:
-      // CUE the video in paused state so it DOES NOT directly start playing!
-      sendCommand('cueVideoById', [currentTrack.id, 0]);
-      sendCommand('pauseVideo');
-    } else {
-      // Explicit user track selection
-      sendCommand('loadVideoById', [currentTrack.id, 0]);
+    if (isSameId) {
       if (isPlayingRef.current) {
         sendCommand('playVideo');
-      } else {
-        sendCommand('pauseVideo');
       }
+      return;
     }
-  }, [currentTrack]);
+
+    sendCommand('loadVideoById', [currentTrack.id, 0]);
+    if (isPlayingRef.current) {
+      sendCommand('playVideo');
+    } else {
+      sendCommand('pauseVideo');
+    }
+  }, [currentTrack?.id, currentTrack?._playNonce]);
 
   if (!currentTrack || !currentTrack.id) {
     return null;
   }
 
-  // Set autoplay=0 when visiting website so browser never starts audio automatically!
-  const autoplayParam = isPlaying ? 1 : 0;
-  const embedUrl = `https://www.youtube.com/embed/${currentTrack.id}?autoplay=${autoplayParam}&enablejsapi=1&playsinline=1&controls=0&modestbranding=1&rel=0`;
+  const embedUrl = `https://www.youtube.com/embed/${currentTrack.id}?autoplay=1&enablejsapi=1&playsinline=1&controls=0&modestbranding=1&rel=0`;
 
-  // Hidden background audio container (NO floating preview on screen)
   return (
     <View style={styles.hiddenAudioContainer} pointerEvents="none">
       <iframe
@@ -182,7 +239,13 @@ export default function YouTubeEngine() {
           backgroundColor: '#000000',
         }}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        onLoad={notifyListening}
+        onLoad={() => {
+          notifyListening();
+          ensureAudible();
+          if (isPlayingRef.current) {
+            sendCommand('playVideo');
+          }
+        }}
       />
     </View>
   );
@@ -191,11 +254,11 @@ export default function YouTubeEngine() {
 const styles = StyleSheet.create({
   hiddenAudioContainer: {
     position: 'fixed',
-    top: -9999,
-    left: -9999,
+    bottom: 0,
+    right: 0,
     width: 200,
     height: 200,
-    opacity: 0.001,
+    opacity: 0.005,
     zIndex: -1,
   },
 });

@@ -16,16 +16,24 @@ import { usePlayer } from '../context/PlayerContext';
 import CustomSeekBar from './CustomSeekBar';
 import PlaylistModal from './PlaylistModal';
 import LyricsView from './LyricsView';
+import AIAssistantModal from './AIAssistantModal';
+import AudioVisualizer from './AudioVisualizer';
+import SleepTimerModal from './SleepTimerModal';
 import HomeScreen from '../screens/HomeScreen';
 import SearchScreen from '../screens/SearchScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 
+const SPEED_STEPS = [1.0, 0.8, 1.25, 1.5];
+
 export default function DesktopLayout() {
   const [activeTab, setActiveTab] = useState('Home'); // 'Home' | 'Search' | 'Library'
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+  const [aiModalVisible, setAiModalVisible] = useState(false);
+  const [sleepModalVisible, setSleepModalVisible] = useState(false);
   const [showLyricsPanel, setShowLyricsPanel] = useState(false);
   const [spotifyUrlInput, setSpotifyUrlInput] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [searchParams, setSearchParams] = useState({});
 
   const {
     currentTrack,
@@ -37,6 +45,10 @@ export default function DesktopLayout() {
     playlists,
     likes,
     downloads,
+    playbackRate,
+    setPlaybackRate,
+    sleepTimerMinutes,
+    sleepTimerSecondsLeft,
     togglePlayPause,
     seekTo,
     nextTrack,
@@ -76,6 +88,18 @@ export default function DesktopLayout() {
     }
   };
 
+  const handleCycleSpeed = () => {
+    const curIdx = SPEED_STEPS.indexOf(playbackRate);
+    const nextIdx = (curIdx + 1) % SPEED_STEPS.length;
+    setPlaybackRate(SPEED_STEPS[nextIdx]);
+  };
+
+  const formatTimerBadge = () => {
+    if (!sleepTimerSecondsLeft) return null;
+    const m = Math.floor(sleepTimerSecondsLeft / 60);
+    return `${m}m`;
+  };
+
   return (
     <View style={styles.desktopContainer}>
       <View style={styles.mainArea}>
@@ -84,12 +108,10 @@ export default function DesktopLayout() {
           {/* Harmoniq Brand Header */}
           <View style={styles.logoRow}>
             <View style={styles.logoIconBg}>
-              <Ionicons name="sparkles" size={18} color="#0B0F0C" />
+              <Ionicons name="sparkles" size={18} color="#000000" />
             </View>
             <View>
-              <Text style={styles.logoText}>
-                H A R M O N I Q
-              </Text>
+              <Text style={styles.logoText}>HARMONIQ</Text>
               <Text style={styles.logoSubtext}>FAMILY AUDIO HUB</Text>
             </View>
           </View>
@@ -101,12 +123,12 @@ export default function DesktopLayout() {
               onPress={() => setActiveTab('Home')}
             >
               <Ionicons
-                name={activeTab === 'Home' ? 'planet' : 'planet-outline'}
+                name={activeTab === 'Home' ? 'home' : 'home-outline'}
                 size={22}
-                color={activeTab === 'Home' ? colors.accent : colors.textSecondary}
+                color={activeTab === 'Home' ? colors.textPrimary : colors.textSecondary}
               />
               <Text style={[styles.navText, activeTab === 'Home' && styles.navTextActive]}>
-                Discover
+                Home
               </Text>
             </TouchableOpacity>
 
@@ -117,7 +139,7 @@ export default function DesktopLayout() {
               <Ionicons
                 name={activeTab === 'Search' ? 'search' : 'search-outline'}
                 size={22}
-                color={activeTab === 'Search' ? colors.accent : colors.textSecondary}
+                color={activeTab === 'Search' ? colors.textPrimary : colors.textSecondary}
               />
               <Text style={[styles.navText, activeTab === 'Search' && styles.navTextActive]}>
                 Search
@@ -129,12 +151,23 @@ export default function DesktopLayout() {
               onPress={() => setActiveTab('Library')}
             >
               <Ionicons
-                name={activeTab === 'Library' ? 'file-tray-full' : 'file-tray-full-outline'}
+                name={activeTab === 'Library' ? 'library' : 'library-outline'}
                 size={22}
-                color={activeTab === 'Library' ? colors.accent : colors.textSecondary}
+                color={activeTab === 'Library' ? colors.textPrimary : colors.textSecondary}
               />
               <Text style={[styles.navText, activeTab === 'Library' && styles.navTextActive]}>
-                Vault ({playlists.length})
+                Your Library ({playlists.length})
+              </Text>
+            </TouchableOpacity>
+
+            {/* AI Assistant Navigation */}
+            <TouchableOpacity
+              style={[styles.navItem, styles.aiNavItem]}
+              onPress={() => setAiModalVisible(true)}
+            >
+              <Ionicons name="sparkles" size={20} color={colors.accent} />
+              <Text style={[styles.navText, styles.aiNavText]}>
+                AI Music DJ
               </Text>
             </TouchableOpacity>
           </View>
@@ -142,7 +175,7 @@ export default function DesktopLayout() {
           {/* Spotify Quick Importer Widget */}
           <View style={styles.spotifyWidget}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-              <Ionicons name="logo-electron" size={14} color={colors.accent} style={{ marginRight: 6 }} />
+              <Ionicons name="musical-notes" size={14} color={colors.accent} style={{ marginRight: 6 }} />
               <Text style={styles.spotifyWidgetTitle}>IMPORT SPOTIFY</Text>
             </View>
             <TextInput
@@ -152,6 +185,8 @@ export default function DesktopLayout() {
               value={spotifyUrlInput}
               onChangeText={setSpotifyUrlInput}
               onSubmitEditing={handleSidebarSpotifyImport}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
             {spotifyUrlInput.length > 0 && (
               <TouchableOpacity
@@ -160,7 +195,7 @@ export default function DesktopLayout() {
                 disabled={isImporting}
               >
                 {isImporting ? (
-                  <ActivityIndicator size="small" color="#080B08" />
+                  <ActivityIndicator size="small" color="#000000" />
                 ) : (
                   <Text style={styles.spotifyWidgetBtnText}>Import</Text>
                 )}
@@ -172,7 +207,7 @@ export default function DesktopLayout() {
           <View style={styles.shortcutGroup}>
             <TouchableOpacity style={styles.shortcutItem} onPress={handleCreateNewPlaylist}>
               <View style={styles.createShortcutIcon}>
-                <Ionicons name="add" size={18} color="#080B08" />
+                <Ionicons name="add" size={18} color="#000000" />
               </View>
               <Text style={styles.shortcutText}>New Playlist</Text>
             </TouchableOpacity>
@@ -186,7 +221,7 @@ export default function DesktopLayout() {
 
             <TouchableOpacity style={styles.shortcutItem} onPress={() => setActiveTab('Library')}>
               <View style={styles.downloadShortcutIcon}>
-                <Ionicons name="cloud-download" size={15} color="#080B08" />
+                <Ionicons name="cloud-download" size={15} color="#000000" />
               </View>
               <Text style={styles.shortcutText}>Downloaded ({downloads.length})</Text>
             </TouchableOpacity>
@@ -215,25 +250,25 @@ export default function DesktopLayout() {
           {activeTab === 'Home' && (
             <HomeScreen
               navigation={{
-                navigate: (screen) => {
-                  if (screen === 'Search') setActiveTab('Search');
+                navigate: (screen, params) => {
+                  if (screen === 'Search') {
+                    if (params) setSearchParams(params);
+                    setActiveTab('Search');
+                  }
                   if (screen === 'Library') setActiveTab('Library');
                 },
               }}
             />
           )}
-          {activeTab === 'Search' && <SearchScreen route={{}} />}
+          {activeTab === 'Search' && <SearchScreen route={{ params: searchParams }} />}
           {activeTab === 'Library' && <LibraryScreen />}
         </View>
 
-        {/* Synced Lyrics Drawer in Green */}
+        {/* Synced Lyrics Drawer */}
         {showLyricsPanel && currentTrack && (
           <View style={styles.lyricsSideDrawer}>
             <View style={styles.drawerHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="sparkles" size={16} color={colors.accent} style={{ marginRight: 6 }} />
-                <Text style={styles.drawerTitle}>Karaoke Live Lyrics</Text>
-              </View>
+              <Text style={styles.drawerTitle}>Live Lyrics</Text>
               <TouchableOpacity onPress={() => setShowLyricsPanel(false)}>
                 <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -243,9 +278,9 @@ export default function DesktopLayout() {
         )}
       </View>
 
-      {/* Bottom Pure Green Player Bar */}
+      {/* Bottom Player Bar */}
       <View style={styles.bottomPlayerBar}>
-        {/* Left Side: Track Info & Actions */}
+        {/* Left Side: Track Info & Audio Visualizer */}
         <View style={styles.playerLeft}>
           {currentTrack ? (
             <>
@@ -306,7 +341,7 @@ export default function DesktopLayout() {
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
                 size={22}
-                color="#080B08"
+                color="#000000"
                 style={!isPlaying ? { marginLeft: 2 } : null}
               />
             </TouchableOpacity>
@@ -336,8 +371,40 @@ export default function DesktopLayout() {
           </View>
         </View>
 
-        {/* Right: Lyrics & Modals */}
+        {/* Right: Speed, Sleep, Lyrics & Modals */}
         <View style={styles.playerRight}>
+          {/* Playback Rate / Speed Selector */}
+          <TouchableOpacity
+            style={styles.speedPill}
+            onPress={handleCycleSpeed}
+            title="Adjust playback speed"
+          >
+            <Text style={styles.speedPillText}>
+              {playbackRate === 0.8 ? '0.8x 🌙' : playbackRate === 1.25 ? '1.25x ⚡' : `${playbackRate}x`}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Sleep Timer Button */}
+          <TouchableOpacity
+            style={[
+              styles.rightActionBtn,
+              (sleepTimerMinutes !== null || sleepTimerSecondsLeft) && styles.activeRightActionBtn,
+            ]}
+            onPress={() => setSleepModalVisible(true)}
+            title="Sleep Timer"
+          >
+            <Ionicons
+              name="moon-outline"
+              size={19}
+              color={(sleepTimerMinutes !== null || sleepTimerSecondsLeft) ? colors.accent : colors.textSecondary}
+            />
+            {formatTimerBadge() && (
+              <View style={styles.timerBadge}>
+                <Text style={styles.timerBadgeText}>{formatTimerBadge()}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
           {currentTrack && (
             <>
               <TouchableOpacity
@@ -364,6 +431,14 @@ export default function DesktopLayout() {
 
           <TouchableOpacity
             style={styles.rightActionBtn}
+            onPress={() => setAiModalVisible(true)}
+            title="AI Music DJ"
+          >
+            <Ionicons name="sparkles" size={20} color={colors.accent} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.rightActionBtn}
             onPress={() => setIsNowPlayingOpen(true)}
             title="Expand Full Screen"
           >
@@ -372,6 +447,7 @@ export default function DesktopLayout() {
         </View>
       </View>
 
+      {/* Modals */}
       {currentTrack && (
         <PlaylistModal
           visible={playlistModalVisible}
@@ -379,6 +455,16 @@ export default function DesktopLayout() {
           onClose={() => setPlaylistModalVisible(false)}
         />
       )}
+
+      <AIAssistantModal
+        visible={aiModalVisible}
+        onClose={() => setAiModalVisible(false)}
+      />
+
+      <SleepTimerModal
+        visible={sleepModalVisible}
+        onClose={() => setSleepModalVisible(false)}
+      />
     </View>
   );
 }
@@ -386,48 +472,51 @@ export default function DesktopLayout() {
 const styles = StyleSheet.create({
   desktopContainer: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: colors.background,
   },
   mainArea: {
     flex: 1,
     flexDirection: 'row',
+    overflow: 'hidden',
   },
   sidebar: {
-    width: 260,
+    width: 250,
     backgroundColor: colors.surface,
-    padding: 20,
+    padding: 18,
     borderRightWidth: 1,
     borderRightColor: colors.divider,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   logoIconBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
     shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
   },
   logoText: {
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 3,
+    fontWeight: '800',
+    letterSpacing: 2,
   },
   logoSubtext: {
     color: colors.accentLight,
     fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   navGroup: {
     marginBottom: 16,
@@ -435,13 +524,13 @@ const styles = StyleSheet.create({
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     marginBottom: 4,
   },
   navItemActive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: 'rgba(29, 185, 84, 0.15)',
     borderLeftWidth: 3,
     borderLeftColor: colors.accent,
   },
@@ -449,24 +538,34 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 14,
+    marginLeft: 12,
   },
   navTextActive: {
     color: colors.textPrimary,
     fontWeight: '700',
   },
+  aiNavItem: {
+    marginTop: 6,
+    backgroundColor: 'rgba(29, 185, 84, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(29, 185, 84, 0.25)',
+  },
+  aiNavText: {
+    color: colors.accent,
+    fontWeight: '700',
+  },
   spotifyWidget: {
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+    backgroundColor: 'rgba(29, 185, 84, 0.08)',
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: 'rgba(29, 185, 84, 0.2)',
     marginBottom: 16,
   },
   spotifyWidgetTitle: {
     color: colors.accent,
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 0.8,
   },
   spotifyWidgetInput: {
@@ -483,67 +582,67 @@ const styles = StyleSheet.create({
     marginTop: 6,
     backgroundColor: colors.accent,
     borderRadius: 6,
-    paddingVertical: 4,
+    paddingVertical: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   spotifyWidgetBtnText: {
-    color: '#080B08',
+    color: '#000000',
     fontSize: 11,
     fontWeight: '800',
   },
   shortcutGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   shortcutItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
   },
   createShortcutIcon: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     borderRadius: 6,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   likedShortcutIcon: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     borderRadius: 6,
     backgroundColor: colors.accentPink,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   downloadShortcutIcon: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     borderRadius: 6,
-    backgroundColor: colors.accentMint,
+    backgroundColor: colors.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   shortcutText: {
     color: colors.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   divider: {
     height: 1,
     backgroundColor: colors.divider,
-    marginVertical: 12,
+    marginVertical: 10,
   },
   playlistSidebarHeading: {
     color: colors.textMuted,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   sidebarPlaylists: {
     flex: 1,
@@ -559,9 +658,10 @@ const styles = StyleSheet.create({
   centralContent: {
     flex: 1,
     backgroundColor: colors.background,
+    overflow: 'hidden',
   },
   lyricsSideDrawer: {
-    width: 330,
+    width: 340,
     backgroundColor: colors.surface,
     borderLeftWidth: 1,
     borderLeftColor: colors.divider,
@@ -579,7 +679,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   bottomPlayerBar: {
-    height: 90,
+    height: 88,
     backgroundColor: colors.playerBar,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
@@ -589,42 +689,46 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   playerLeft: {
-    width: '30%',
+    width: '32%',
     flexDirection: 'row',
     alignItems: 'center',
   },
   playerThumbnail: {
-    width: 54,
-    height: 54,
+    width: 52,
+    height: 52,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.cardBorderGlow,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     backgroundColor: colors.surfaceLight,
   },
   playerTrackMeta: {
     marginLeft: 12,
     flex: 1,
+    marginRight: 6,
   },
   playerTrackTitle: {
     color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   playerTrackArtist: {
     color: colors.textSecondary,
     fontSize: 11,
   },
+  visualizerWrap: {
+    marginRight: 8,
+  },
   playerLikeBtn: {
-    padding: 8,
-    marginLeft: 4,
+    padding: 6,
+    marginLeft: 2,
   },
   noTrackText: {
     color: colors.textMuted,
     fontSize: 13,
   },
   playerCenter: {
-    width: '40%',
+    width: '38%',
     alignItems: 'center',
   },
   playerControlsRow: {
@@ -637,21 +741,22 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   desktopPlayBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 10,
     shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 4,
   },
   seekBarDesktopWrapper: {
     width: '100%',
-    maxWidth: 500,
+    maxWidth: 480,
   },
   playerRight: {
     width: '30%',
@@ -659,12 +764,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
+  speedPill: {
+    backgroundColor: colors.surfaceLight,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    marginRight: 6,
+  },
+  speedPillText: {
+    color: colors.textPrimary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   rightActionBtn: {
     padding: 8,
-    marginRight: 8,
+    marginRight: 4,
+    position: 'relative',
   },
   activeRightActionBtn: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: 'rgba(29, 185, 84, 0.15)',
     borderRadius: 20,
+  },
+  timerBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  timerBadgeText: {
+    color: '#000000',
+    fontSize: 8,
+    fontWeight: '900',
   },
 });

@@ -3,44 +3,40 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { usePlayer } from '../context/PlayerContext';
-import { searchYouTubeMusic } from '../api/youtube';
+import {
+  searchYouTubeMusic,
+  TODAYS_BIGGEST_HITS,
+  BOLLYWOOD_CHARTBUSTERS,
+  GLOBAL_POP_HITS,
+} from '../api/youtube';
 import TrackCard from '../components/TrackCard';
 import PlaylistModal from '../components/PlaylistModal';
 
-const GENRE_SPHERES = [
-  { id: 'all', label: 'All Beats', icon: 'planet', query: 'Top Global Hits' },
-  { id: 'trending', label: 'Trending', icon: 'flame', query: 'Trending Music Video 2026' },
-  { id: 'bollywood', label: 'Bollywood', icon: 'musical-notes', query: 'Bollywood Hit Songs 2026' },
-  { id: 'lofi', label: 'Lo-Fi Chill', icon: 'moon', query: 'Lofi hip hop beats' },
-  { id: 'workout', label: 'Hyper Gym', icon: 'barbell', query: 'Workout Gym Motivation Hits' },
+const CATEGORY_PILLS = [
+  { id: 'all', label: 'All', query: 'Top Global Hits' },
+  { id: 'biggest', label: "Today's Biggest Hits", query: 'Top 50 Global Hits' },
+  { id: 'bollywood', label: 'Bollywood Chartbusters', query: 'Bollywood Hit Songs' },
+  { id: 'pop', label: 'Global Pop', query: 'Top Pop English Hits' },
 ];
 
 export default function HomeScreen({ navigation }) {
-  const { currentTrack, playTrack, recentlyPlayed, isPlaying, importSpotify } = usePlayer();
-  const [selectedPreset, setSelectedPreset] = useState('all');
-  const [trendingTracks, setTrendingTracks] = useState([]);
-  const [bollywoodTracks, setBollywoodTracks] = useState([]);
-  const [lofiTracks, setLofiTracks] = useState([]);
-  const [workoutTracks, setWorkoutTracks] = useState([]);
+  const { currentTrack, playTrack, recentlyPlayed, isPlaying } = usePlayer();
+  const [selectedPill, setSelectedPill] = useState('all');
+  const [biggestHitsTracks, setBiggestHitsTracks] = useState(TODAYS_BIGGEST_HITS);
+  const [bollywoodTracks, setBollywoodTracks] = useState(BOLLYWOOD_CHARTBUSTERS);
+  const [globalPopTracks, setGlobalPopTracks] = useState(GLOBAL_POP_HITS);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedModalTrack, setSelectedModalTrack] = useState(null);
-
-  // Spotify Playlist Importer State
-  const [spotifyUrl, setSpotifyUrl] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -51,19 +47,41 @@ export default function HomeScreen({ navigation }) {
 
   const loadAllCategories = async () => {
     try {
-      const [trendRes, bollyRes, lofiRes, workRes] = await Promise.all([
-        searchYouTubeMusic('Trending Music Hits 2026'),
-        searchYouTubeMusic('Bollywood Hit Songs 2026'),
-        searchYouTubeMusic('Lo-fi Chill Beats Study Sleep'),
-        searchYouTubeMusic('Workout Gym Motivation Songs'),
+      const [trendRes, bollyRes, popRes] = await Promise.all([
+        searchYouTubeMusic('Top 50 Global Hits Official'),
+        searchYouTubeMusic('Latest Bollywood Hindi Hits Songs'),
+        searchYouTubeMusic('Top English Pop Hits Billboard'),
       ]);
 
-      if (trendRes.tracks?.length) setTrendingTracks(trendRes.tracks);
-      if (bollyRes.tracks?.length) setBollywoodTracks(bollyRes.tracks);
-      if (lofiRes.tracks?.length) setLofiTracks(lofiRes.tracks);
-      if (workRes.tracks?.length) setWorkoutTracks(workRes.tracks);
+      // Strict Cross-Category Deduplication: Guarantees 100% unique tracks across all 3 sections!
+      const seenTrackIds = new Set();
+      const dedupeAndFill = (fetchedList, fallbackList) => {
+        const result = [];
+        const combined = [...(fetchedList || []), ...fallbackList];
+        for (const track of combined) {
+          if (track && track.id && !seenTrackIds.has(track.id)) {
+            seenTrackIds.add(track.id);
+            result.push(track);
+          }
+        }
+        return result;
+      };
+
+      // 1. Today's Biggest Hits (Primary)
+      const uniqueBiggest = dedupeAndFill(trendRes.tracks, TODAYS_BIGGEST_HITS);
+      // 2. Bollywood Chartbusters (Guaranteed zero collision with Biggest Hits)
+      const uniqueBollywood = dedupeAndFill(bollyRes.tracks, BOLLYWOOD_CHARTBUSTERS);
+      // 3. Global Pop (Guaranteed zero collision with Biggest Hits or Bollywood)
+      const uniqueGlobalPop = dedupeAndFill(popRes.tracks, GLOBAL_POP_HITS);
+
+      if (uniqueBiggest.length > 0) setBiggestHitsTracks(uniqueBiggest);
+      if (uniqueBollywood.length > 0) setBollywoodTracks(uniqueBollywood);
+      if (uniqueGlobalPop.length > 0) setGlobalPopTracks(uniqueGlobalPop);
     } catch (err) {
       console.warn('Error loading dynamic categories:', err);
+      setBiggestHitsTracks(TODAYS_BIGGEST_HITS);
+      setBollywoodTracks(BOLLYWOOD_CHARTBUSTERS);
+      setGlobalPopTracks(GLOBAL_POP_HITS);
     } finally {
       setLoading(false);
     }
@@ -79,52 +97,10 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
-  const handleChipPress = (preset) => {
-    setSelectedPreset(preset.id);
-    if (preset.id !== 'all' && navigation) {
-      navigation.navigate('Search', { initialQuery: preset.query });
-    }
-  };
-
-  const handleSpotifyImport = async () => {
-    if (!spotifyUrl.trim()) {
-      if (Platform.OS === 'web') {
-        window.alert('Please paste a Spotify playlist URL');
-      } else {
-        Alert.alert('Missing URL', 'Please paste a Spotify playlist link.');
-      }
-      return;
-    }
-
-    setIsImporting(true);
-    setImportProgress(10);
-
-    try {
-      const importedPlaylist = await importSpotify(spotifyUrl.trim(), (pct) => {
-        setImportProgress(pct);
-      });
-
-      setIsImporting(false);
-      setSpotifyUrl('');
-
-      const msg = `Successfully imported "${importedPlaylist.name}" with ${importedPlaylist.tracks.length} tracks!`;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Import Complete!', msg);
-      }
-
-      if (importedPlaylist.tracks.length > 0) {
-        playTrack(importedPlaylist.tracks[0], importedPlaylist.tracks);
-      }
-    } catch (err) {
-      setIsImporting(false);
-      const errMsg = err.message || 'Failed to import playlist. Check that the link is public.';
-      if (Platform.OS === 'web') {
-        window.alert(errMsg);
-      } else {
-        Alert.alert('Import Error', errMsg);
-      }
+  const handlePillPress = (pill) => {
+    setSelectedPill(pill.id);
+    if (pill.id !== 'all' && navigation) {
+      navigation.navigate('Search', { initialQuery: pill.query });
     }
   };
 
@@ -133,6 +109,7 @@ export default function HomeScreen({ navigation }) {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -144,93 +121,42 @@ export default function HomeScreen({ navigation }) {
       >
         {/* Top Header */}
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.subGreeting}>Welcome to Harmoniq • Family Music Hub</Text>
-          </View>
+          <Text style={styles.greeting}>{getGreeting()}</Text>
           <TouchableOpacity
-            style={styles.headerIconBtn}
+            style={styles.searchIconBtn}
             onPress={() => navigation?.navigate('Search')}
+            accessibilityLabel="Search music"
           >
-            <Ionicons name="search" size={22} color={colors.accent} />
+            <Ionicons name="search" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
-        {/* SPOTIFY PLAYLIST IMPORTER HERO BANNER */}
-        <View style={styles.importerCard}>
-          <View style={styles.importerHeader}>
-            <View style={styles.spotifyBadge}>
-              <Ionicons name="logo-electron" size={16} color={colors.accent} />
-              <Text style={styles.spotifyBadgeText}>SPOTIFY PLAYLIST IMPORT</Text>
-            </View>
-          </View>
-          <Text style={styles.importerTitle}>Paste Any Spotify Playlist Link</Text>
-          <Text style={styles.importerSubtitle}>
-            Import all songs directly into Harmoniq for the whole family
-          </Text>
-
-          <View style={styles.importerInputRow}>
-            <TextInput
-              style={styles.importerInput}
-              placeholder="https://open.spotify.com/playlist/..."
-              placeholderTextColor={colors.textMuted}
-              value={spotifyUrl}
-              onChangeText={setSpotifyUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity
-              style={styles.importerButton}
-              onPress={handleSpotifyImport}
-              disabled={isImporting}
-            >
-              {isImporting ? (
-                <ActivityIndicator size="small" color="#080B08" />
-              ) : (
-                <Text style={styles.importerButtonText}>Import</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {isImporting && (
-            <View style={styles.importProgressRow}>
-              <Text style={styles.importProgressText}>Importing songs: {importProgress}%</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Dynamic Preset Genre Spheres */}
+        {/* Filter Pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsScroll}
+          contentContainerStyle={styles.pillsScroll}
         >
-          {GENRE_SPHERES.map((item) => {
-            const isActive = selectedPreset === item.id;
+          {CATEGORY_PILLS.map((pill) => {
+            const isActive = selectedPill === pill.id;
             return (
               <TouchableOpacity
-                key={item.id}
-                style={[styles.sphereChip, isActive && styles.activeSphereChip]}
-                onPress={() => handleChipPress(item)}
+                key={pill.id}
+                style={[styles.pill, isActive && styles.activePill]}
+                onPress={() => handlePillPress(pill)}
+                activeOpacity={0.75}
               >
-                <Ionicons
-                  name={item.icon}
-                  size={14}
-                  color={isActive ? '#080B08' : colors.accent}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[styles.sphereText, isActive && styles.activeSphereText]}>
-                  {item.label}
+                <Text style={[styles.pillText, isActive && styles.activePillText]}>
+                  {pill.label}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
-        {/* Recently Played */}
+        {/* Recently Played (2-Column Grid) */}
         {recentlyPlayed && recentlyPlayed.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recently Streamed</Text>
             <View style={styles.recentGrid}>
               {recentlyPlayed.slice(0, 6).map((track) => (
                 <View key={track.id} style={styles.gridItemWrapper}>
@@ -249,44 +175,43 @@ export default function HomeScreen({ navigation }) {
         {loading ? (
           <View style={styles.loadingWrapper}>
             <ActivityIndicator size="large" color={colors.accent} />
-            <Text style={styles.loadingText}>Syncing dynamic music catalogue...</Text>
           </View>
         ) : (
           <>
-            {/* Trending Now */}
-            {trendingTracks.length > 0 && (
+            {/* 1. Today's Biggest Hits */}
+            {biggestHitsTracks.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Global Trending</Text>
+                  <Text style={styles.sectionTitle}>Today's Biggest Hits</Text>
                   <TouchableOpacity
-                    onPress={() => navigation?.navigate('Search', { initialQuery: 'Trending Music Hits' })}
+                    onPress={() => navigation?.navigate('Search', { initialQuery: "Today's Biggest Hits" })}
                   >
-                    <Text style={styles.seeAllText}>Explore</Text>
+                    <Text style={styles.seeAllText}>Show all</Text>
                   </TouchableOpacity>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
-                  {trendingTracks.map((track) => (
+                  {biggestHitsTracks.map((track) => (
                     <TrackCard
                       key={track.id}
                       track={track}
                       variant="carousel"
                       isPlayingThis={currentTrack?.id === track.id && isPlaying}
-                      onPress={() => playTrack(track, trendingTracks)}
+                      onPress={() => playTrack(track, biggestHitsTracks)}
                     />
                   ))}
                 </ScrollView>
               </View>
             )}
 
-            {/* Bollywood Hits */}
+            {/* 2. Bollywood Chartbusters */}
             {bollywoodTracks.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Bollywood Beats</Text>
+                  <Text style={styles.sectionTitle}>Bollywood Chartbusters</Text>
                   <TouchableOpacity
-                    onPress={() => navigation?.navigate('Search', { initialQuery: 'Bollywood Hit Songs' })}
+                    onPress={() => navigation?.navigate('Search', { initialQuery: 'Bollywood Chartbusters' })}
                   >
-                    <Text style={styles.seeAllText}>Explore</Text>
+                    <Text style={styles.seeAllText}>Show all</Text>
                   </TouchableOpacity>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
@@ -303,50 +228,25 @@ export default function HomeScreen({ navigation }) {
               </View>
             )}
 
-            {/* Lo-fi Beats */}
-            {lofiTracks.length > 0 && (
+            {/* 3. Global Pop */}
+            {globalPopTracks.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Midnight Lo-Fi</Text>
+                  <Text style={styles.sectionTitle}>Global Pop</Text>
                   <TouchableOpacity
-                    onPress={() => navigation?.navigate('Search', { initialQuery: 'Lo-Fi Chill Beats' })}
+                    onPress={() => navigation?.navigate('Search', { initialQuery: 'Global Pop Hits' })}
                   >
-                    <Text style={styles.seeAllText}>Explore</Text>
+                    <Text style={styles.seeAllText}>Show all</Text>
                   </TouchableOpacity>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
-                  {lofiTracks.map((track) => (
+                  {globalPopTracks.map((track) => (
                     <TrackCard
                       key={track.id}
                       track={track}
                       variant="carousel"
                       isPlayingThis={currentTrack?.id === track.id && isPlaying}
-                      onPress={() => playTrack(track, lofiTracks)}
-                    />
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Workout Energy */}
-            {workoutTracks.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Hyper Gym Motivation</Text>
-                  <TouchableOpacity
-                    onPress={() => navigation?.navigate('Search', { initialQuery: 'Workout Gym Motivation' })}
-                  >
-                    <Text style={styles.seeAllText}>Explore</Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
-                  {workoutTracks.map((track) => (
-                    <TrackCard
-                      key={track.id}
-                      track={track}
-                      variant="carousel"
-                      isPlayingThis={currentTrack?.id === track.id && isPlaying}
-                      onPress={() => playTrack(track, workoutTracks)}
+                      onPress={() => playTrack(track, globalPopTracks)}
                     />
                   ))}
                 </ScrollView>
@@ -378,7 +278,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'android' ? 16 : 8,
     paddingHorizontal: 16,
   },
   headerRow: {
@@ -386,142 +286,46 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    paddingTop: 8,
   },
   greeting: {
     color: colors.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  subGreeting: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  // SPOTIFY IMPORTER CARD
-  importerCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.cardBorderGlow,
-    marginBottom: 20,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-  },
-  importerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  spotifyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  spotifyBadgeText: {
-    color: colors.accent,
-    fontSize: 9,
-    fontWeight: '900',
-    marginLeft: 5,
-    letterSpacing: 0.6,
-  },
-  importerTitle: {
-    color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: '800',
-    marginBottom: 2,
+    letterSpacing: -0.4,
   },
-  importerSubtitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginBottom: 12,
-  },
-  importerInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  importerInput: {
-    flex: 1,
-    height: 42,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    color: colors.textPrimary,
-    fontSize: 13,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginRight: 8,
-  },
-  importerButton: {
-    height: 42,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    backgroundColor: colors.accent,
+  searchIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#242424',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  importerButtonText: {
-    color: '#080B08',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  importProgressRow: {
-    marginTop: 8,
-  },
-  importProgressText: {
-    color: colors.accent,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  // GENRE SPHERES
-  chipsScroll: {
+  pillsScroll: {
     paddingBottom: 16,
+    gap: 8,
   },
-  sphereChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  pill: {
+    backgroundColor: '#242424',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
     borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
   },
-  activeSphereChip: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+  activePill: {
+    backgroundColor: '#FFFFFF',
   },
-  sphereText: {
+  pillText: {
     color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '600',
   },
-  activeSphereText: {
-    color: '#080B08',
-    fontWeight: '900',
+  activePillText: {
+    color: '#121212',
+    fontWeight: '800',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 26,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -531,12 +335,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.textPrimary,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   seeAllText: {
-    color: colors.accent,
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -544,22 +348,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -4,
-    marginTop: 6,
   },
   gridItemWrapper: {
     width: '50%',
   },
   horizontalRow: {
     paddingRight: 16,
+    gap: 12,
   },
   loadingWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    marginTop: 12,
+    paddingVertical: 60,
   },
 });

@@ -1,28 +1,36 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Easing,
+  TouchableOpacity,
+  Platform,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
 export default function SplashScreen({ onFinish }) {
-  // Motion.dev Spring Physics Values
+  // Entrance spring animations
   const logoScale = useRef(new Animated.Value(0.4)).current;
   const logoRotate = useRef(new Animated.Value(-0.06)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
 
-  // Concentric Resonant Soundwave Rings
+  // Concentric resonant soundwave rings
   const ring1Scale = useRef(new Animated.Value(1)).current;
   const ring1Opacity = useRef(new Animated.Value(0.7)).current;
   const ring2Scale = useRef(new Animated.Value(1)).current;
   const ring2Opacity = useRef(new Animated.Value(0.5)).current;
 
-  // Staggered Sound Core Waveform Heights
+  // Staggered Sound Core Waveform Heights (5 bars)
   const coreWave1 = useRef(new Animated.Value(0.4)).current;
   const coreWave2 = useRef(new Animated.Value(0.8)).current;
   const coreWave3 = useRef(new Animated.Value(0.6)).current;
   const coreWave4 = useRef(new Animated.Value(0.95)).current;
   const coreWave5 = useRef(new Animated.Value(0.5)).current;
 
-  // 7 Bottom Equalizer Audio Frequency Bars in Dim Soft Green
+  // 7 Bottom Equalizer Audio Frequency Bars
   const barHeights = [
     useRef(new Animated.Value(0.3)).current,
     useRef(new Animated.Value(0.6)).current,
@@ -33,16 +41,23 @@ export default function SplashScreen({ onFinish }) {
     useRef(new Animated.Value(0.35)).current,
   ];
 
-  // Exactly 3.0-Second Progress Bar
+  // 2.4-Second Progress Bar
   const progressAnim = useRef(new Animated.Value(0)).current;
   const [percent, setPercent] = useState(0);
+  const finishedRef = useRef(false);
+
+  const finishSplash = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    if (onFinish) onFinish();
+  };
 
   useEffect(() => {
-    // 1. Motion.dev Spring Entrance of Emblem
+    // 1. Spring Entrance of Emblem
     Animated.parallel([
       Animated.timing(logoOpacity, {
         toValue: 1,
-        duration: 450,
+        duration: 400,
         useNativeDriver: true,
       }),
       Animated.spring(logoScale, {
@@ -154,11 +169,12 @@ export default function SplashScreen({ onFinish }) {
       ).start();
     });
 
-    // 5. 3.0-Second Progress Timer
+    // 5. 2.4-Second Progress Timer
+    const durationMs = 2400;
     const startTime = Date.now();
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const progress = Math.min(100, Math.round((elapsed / 3000) * 100));
+      const progress = Math.min(100, Math.round((elapsed / durationMs) * 100));
       setPercent(progress);
       if (progress >= 100) {
         clearInterval(interval);
@@ -167,17 +183,21 @@ export default function SplashScreen({ onFinish }) {
 
     Animated.timing(progressAnim, {
       toValue: 1,
-      duration: 3000,
+      duration: durationMs,
       easing: Easing.bezier(0.2, 0, 0.2, 1),
       useNativeDriver: false,
     }).start(() => {
-      setTimeout(() => {
-        if (onFinish) onFinish();
-      }, 100);
+      setTimeout(finishSplash, 80);
     });
+
+    // Guaranteed fallback timer (never get stuck)
+    const safetyTimer = setTimeout(() => {
+      finishSplash();
+    }, 2600);
 
     return () => {
       clearInterval(interval);
+      clearTimeout(safetyTimer);
     };
   }, []);
 
@@ -192,7 +212,11 @@ export default function SplashScreen({ onFinish }) {
   });
 
   return (
-    <View style={styles.container}>
+    <TouchableOpacity
+      activeOpacity={1}
+      onPress={finishSplash}
+      style={styles.container}
+    >
       <View style={styles.content}>
         {/* Modern Acoustic Resonance Core Emblem */}
         <View style={styles.emblemContainer}>
@@ -212,12 +236,11 @@ export default function SplashScreen({ onFinish }) {
               {
                 transform: [{ scale: ring2Scale }],
                 opacity: ring2Opacity,
-                borderColor: 'rgba(110, 231, 183, 0.35)',
               },
             ]}
           />
 
-          {/* Central Stylized Audio Monogram Orb */}
+          {/* Sound Core Disc with Rotating Entrance */}
           <Animated.View
             style={[
               styles.soundCore,
@@ -227,10 +250,9 @@ export default function SplashScreen({ onFinish }) {
               },
             ]}
           >
-            {/* Ambient Inner Glow */}
             <View style={styles.coreGlowBackdrop} />
 
-            {/* Futuristic Sound Wave Crest */}
+            {/* Dynamic Sound Frequency Waveform Bars */}
             <View style={styles.crestRow}>
               <Animated.View style={[styles.crestBar, { transform: [{ scaleY: coreWave1 }] }]} />
               <Animated.View style={[styles.crestBar, { transform: [{ scaleY: coreWave2 }] }]} />
@@ -247,18 +269,16 @@ export default function SplashScreen({ onFinish }) {
 
             {/* Corner Sound Sparkle */}
             <View style={styles.sparkleBadge}>
-              <Ionicons name="sparkles" size={12} color="#0B0F0C" />
+              <Ionicons name="sparkles" size={12} color="#000000" />
             </View>
           </Animated.View>
         </View>
 
-        {/* Sophisticated Family Typography */}
-        <Text style={styles.brandTitle}>
-          H A R M O N I Q
-        </Text>
+        {/* Sophisticated Brand Typography */}
+        <Text style={styles.brandTitle}>H A R M O N I Q</Text>
         <Text style={styles.brandTagline}>FAMILY AUDIO SANCTUARY</Text>
 
-        {/* Subtle Equalizer Visualizer Bars in Soft Dim Green */}
+        {/* Visualizer Equalizer Frequency Bars */}
         <View style={styles.equalizerRow}>
           {barHeights.map((bar, i) => (
             <Animated.View
@@ -274,24 +294,28 @@ export default function SplashScreen({ onFinish }) {
           ))}
         </View>
 
-        {/* 3-Second Loading Bar */}
+        {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBarTrack}>
             <Animated.View style={[styles.progressBarFill, { width: progressWidth }]} />
           </View>
           <View style={styles.progressMeta}>
-            <Text style={styles.statusLabel}>Harmonizing audio matrix...</Text>
+            <Text style={styles.statusLabel}>Harmonizing audio sanctuary…</Text>
             <Text style={styles.percentLabel}>{percent}%</Text>
           </View>
         </View>
+
+        <Text style={styles.skipHint}>Tap anywhere to skip</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+    minHeight: Platform.OS === 'web' ? '100vh' : '100%',
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
@@ -306,39 +330,39 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 36,
-    width: 130,
-    height: 130,
+    marginBottom: 32,
+    width: 124,
+    height: 124,
   },
   acousticRing: {
     position: 'absolute',
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: 98,
+    height: 98,
+    borderRadius: 49,
     borderWidth: 1.5,
-    borderColor: 'rgba(110, 231, 183, 0.45)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   soundCore: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.cardBorderGlow,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#1E1E22',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.accent,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
     elevation: 10,
     position: 'relative',
   },
   coreGlowBackdrop: {
     position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.glowGreen,
     opacity: 0.6,
   },
@@ -346,37 +370,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
+    height: 42,
   },
   crestBar: {
-    width: 5,
-    height: 38,
-    borderRadius: 3,
+    width: 4.5,
+    height: 36,
+    borderRadius: 2.5,
     backgroundColor: colors.accent,
     marginHorizontal: 3,
   },
   crestBarCenter: {
     backgroundColor: colors.accentLight,
-    height: 42,
+    height: 40,
   },
   sparkleBadge: {
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: colors.accentLight,
+    backgroundColor: colors.accent,
     borderRadius: 10,
     padding: 3,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 3,
   },
   brandTitle: {
     color: colors.textPrimary,
-    fontSize: 28,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: '800',
     letterSpacing: 6,
   },
   brandTagline: {
     color: colors.textSecondary,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: 8,
     letterSpacing: 2,
     textTransform: 'uppercase',
@@ -384,34 +413,30 @@ const styles = StyleSheet.create({
   equalizerRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    height: 24,
-    marginVertical: 24,
+    height: 22,
+    marginVertical: 20,
   },
   equalizerBar: {
     width: 3.5,
-    height: 22,
+    height: 20,
     borderRadius: 2,
     marginHorizontal: 3,
   },
   progressContainer: {
     width: '100%',
-    marginTop: 8,
+    marginTop: 6,
   },
   progressBarTrack: {
     width: '100%',
     height: 3.5,
-    backgroundColor: 'rgba(110, 231, 183, 0.1)',
-    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 9999,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: colors.accentLight,
-    borderRadius: 2,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 6,
+    backgroundColor: colors.accent,
+    borderRadius: 9999,
   },
   progressMeta: {
     flexDirection: 'row',
@@ -419,14 +444,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   statusLabel: {
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   percentLabel: {
-    color: colors.accentLight,
+    color: colors.accent,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
+  },
+  skipHint: {
+    color: 'rgba(255, 255, 255, 0.25)',
+    fontSize: 11,
+    marginTop: 16,
+    letterSpacing: 0.5,
   },
 });

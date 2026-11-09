@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { importSpotifyPlaylist as fetchSpotifyPlaylist } from '../api/spotifyImport';
 
@@ -48,12 +49,18 @@ export const PlayerProvider = ({ children }) => {
   const [downloads, setDownloads] = useState([]);
   const [playlists, setPlaylists] = useState(DEFAULT_PLAYLISTS);
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
-  const [recentSearches, setRecentSearches] = useState(['Arijit Singh', 'Ed Sheeran', 'Lo-Fi Chill', 'Gym Workout']);
+  const [recentSearches, setRecentSearches] = useState(['Arijit Singh', 'Ed Sheeran', 'Coldplay', 'Gym Workout']);
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(false);
   const [seekTarget, setSeekTarget] = useState(null);
 
+  // New features: Playback Speed & Sleep Timer
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [sleepTimerMinutes, setSleepTimerMinutes] = useState(null); // number | 'track_end' | null
+  const [sleepTimerSecondsLeft, setSleepTimerSecondsLeft] = useState(null);
+
   const durationRef = useRef(duration);
   durationRef.current = duration;
+  const lastEngineReportRef = useRef(0);
 
   // Load stored state
   useEffect(() => {
@@ -109,6 +116,60 @@ export const PlayerProvider = ({ children }) => {
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEYS.RECENT_SEARCHES, JSON.stringify(recentSearches)).catch(() => {});
   }, [recentSearches]);
+
+  // Turn off music when phone is turned off / screen off / app goes to background
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        setIsPlaying(false);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    // Browser tab visibility / phone browser sleep support
+    let handleVisibilityChange = null;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      handleVisibilityChange = () => {
+        if (document.hidden) {
+          setIsPlaying(false);
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      subscription.remove();
+      if (handleVisibilityChange && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, []);
+
+  // Sleep timer countdown
+  useEffect(() => {
+    if (!sleepTimerSecondsLeft || sleepTimerSecondsLeft <= 0) return;
+    const timer = setInterval(() => {
+      setSleepTimerSecondsLeft((prev) => {
+        if (!prev || prev <= 1) {
+          setIsPlaying(false);
+          setSleepTimerMinutes(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [sleepTimerSecondsLeft]);
+
+  const setSleepTimer = useCallback((mins) => {
+    setSleepTimerMinutes(mins);
+    if (typeof mins === 'number') {
+      setSleepTimerSecondsLeft(mins * 60);
+    } else {
+      setSleepTimerSecondsLeft(null);
+    }
+  }, []);
 
   const seekTo = useCallback((seconds) => {
     const clamped = Math.max(0, Math.min(seconds, durationRef.current));
@@ -181,15 +242,41 @@ export const PlayerProvider = ({ children }) => {
   }, [playbackPosition, queue, queueIndex, seekTo]);
 
   const handleTrackEnded = useCallback(() => {
+    if (sleepTimerMinutes === 'track_end') {
+      setIsPlaying(false);
+      setSleepTimerMinutes(null);
+      return;
+    }
     nextTrack();
-  }, [nextTrack]);
+  }, [nextTrack, sleepTimerMinutes]);
 
-  // Active progress ticker
+  /**
+   * Primary position reporting from YouTube Audio Engines (Web & Native)
+   * Prevents synthetic ticker collisions and drift!
+   */
+  const reportEnginePlaybackPosition = useCallback((time, actualDuration) => {
+    lastEngineReportRef.current = Date.now();
+    if (typeof time === 'number' && !isNaN(time)) {
+      setPlaybackPosition(time);
+    }
+    if (typeof actualDuration === 'number' && !isNaN(actualDuration) && actualDuration > 0) {
+      if (Math.abs(durationRef.current - actualDuration) > 1.5) {
+        setDuration(actualDuration);
+      }
+    }
+  }, []);
+
+  // Synthetic progress fallback ticker (ONLY ticks if engine is disconnected / silent for > 2.5s)
   useEffect(() => {
     let interval = null;
 
     if (isPlaying) {
       interval = setInterval(() => {
+        // If engine reported in last 2500ms, yield to real audio ground truth
+        if (Date.now() - lastEngineReportRef.current < 2500) {
+          return;
+        }
+
         setPlaybackPosition((prev) => {
           const currentDur = durationRef.current;
           const next = prev + 1;
@@ -235,7 +322,7 @@ export const PlayerProvider = ({ children }) => {
 
       const trackDuration = track.durationSeconds || parseDuration(track.duration);
       setDuration(trackDuration);
-      setCurrentTrack(track);
+      setCurrentTrack({ ...track, _playNonce: Date.now() });
       setPlaybackPosition(0);
       setIsPlaying(true);
 
@@ -385,6 +472,12 @@ export const PlayerProvider = ({ children }) => {
       recentSearches,
       isNowPlayingOpen,
       seekTarget,
+      playbackRate,
+      sleepTimerMinutes,
+      sleepTimerSecondsLeft,
+      setPlaybackRate,
+      setSleepTimer,
+      reportEnginePlaybackPosition,
       setIsPlaying,
       setPlaybackPosition,
       setDuration,
@@ -426,6 +519,11 @@ export const PlayerProvider = ({ children }) => {
       recentSearches,
       isNowPlayingOpen,
       seekTarget,
+      playbackRate,
+      sleepTimerMinutes,
+      sleepTimerSecondsLeft,
+      setSleepTimer,
+      reportEnginePlaybackPosition,
       playTrack,
       togglePlayPause,
       seekTo,

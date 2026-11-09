@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, AppState } from 'react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -8,16 +8,17 @@ export default function YouTubeEngine() {
     currentTrack,
     isPlaying,
     setIsPlaying,
-    setPlaybackPosition,
-    setDuration,
+    reportEnginePlaybackPosition,
     handleTrackEnded,
     seekTarget,
   } = usePlayer();
 
   const playerRef = useRef(null);
   const timerRef = useRef(null);
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
-  // Position and duration polling
+  // High precision position and duration polling (250ms)
   useEffect(() => {
     if (isPlaying) {
       timerRef.current = setInterval(async () => {
@@ -26,14 +27,11 @@ export default function YouTubeEngine() {
             const currentTime = await playerRef.current.getCurrentTime();
             const totalDuration = await playerRef.current.getDuration();
             if (currentTime !== undefined && !isNaN(currentTime)) {
-              setPlaybackPosition(currentTime);
-            }
-            if (totalDuration !== undefined && !isNaN(totalDuration) && totalDuration > 0) {
-              setDuration(totalDuration);
+              reportEnginePlaybackPosition(currentTime, totalDuration);
             }
           } catch (e) {}
         }
-      }, 500);
+      }, 250);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
@@ -41,7 +39,17 @@ export default function YouTubeEngine() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isPlaying]);
+  }, [isPlaying, reportEnginePlaybackPosition]);
+
+  // Turn off playback when phone screen turns off / app is backgrounded
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        setIsPlaying(false);
+      }
+    });
+    return () => sub.remove();
+  }, [setIsPlaying]);
 
   // Handle seeking
   useEffect(() => {
@@ -56,17 +64,19 @@ export default function YouTubeEngine() {
     if (state === 'ended') {
       handleTrackEnded();
     } else if (state === 'playing') {
-      setIsPlaying(true);
-    } else if (state === 'paused') {
-      setIsPlaying(false);
+      if (!isPlayingRef.current) {
+        setIsPlaying(true);
+      }
     }
+    // Note: Do NOT set isPlaying(false) on 'paused' because YouTube emits transient
+    // paused events while transitioning/buffering which cancels user-initiated playback!
   };
 
   const handleError = (error) => {
     console.warn('Native YouTube Player error:', error);
     setTimeout(() => {
       handleTrackEnded();
-    }, 2000);
+    }, 1500);
   };
 
   if (!currentTrack || !currentTrack.id) {
@@ -77,8 +87,8 @@ export default function YouTubeEngine() {
     <View style={styles.nativeContainer} pointerEvents="none">
       <YoutubePlayer
         ref={playerRef}
-        height={100}
-        width={160}
+        height={220}
+        width={320}
         play={isPlaying}
         videoId={currentTrack.id}
         onChangeState={handleChangeState}
@@ -87,11 +97,13 @@ export default function YouTubeEngine() {
           allowsInlineMediaPlayback: true,
           mediaPlaybackRequiresUserAction: false,
           androidLayerType: 'hardware',
+          mixedContentMode: 'always',
         }}
         initialPlayerParams={{
           controls: false,
           showClosedCaptions: false,
           preventFullScreen: true,
+          modestbranding: true,
         }}
       />
     </View>
@@ -101,11 +113,12 @@ export default function YouTubeEngine() {
 const styles = StyleSheet.create({
   nativeContainer: {
     position: 'absolute',
-    bottom: -150,
-    left: -150,
-    width: 160,
-    height: 100,
+    bottom: 0,
+    right: 0,
+    width: 2,
+    height: 2,
+    opacity: 0.01,
+    zIndex: -999,
     overflow: 'hidden',
-    opacity: 0.05,
   },
 });
